@@ -1,0 +1,773 @@
+FORENSICS TOOLS AND COMMANDS — STUDY SHEET
+============================================
+
+Purpose
+-------
+This sheet is a quick reference for examining files, media, packet captures,
+disk images, and memory images. Run tools only on evidence you are authorized
+to examine.
+
+FORENSIC BASICS (DO THIS FIRST)
+-------------------------------
+1. Work on a copy, not the original evidence.
+2. If possible, attach physical media through a hardware write blocker.
+3. Record who collected the evidence, when, where, and how (chain of custody).
+4. Hash evidence before and after copying; matching hashes show it did not change.
+5. Mount disk images read-only. Store extracted files in a separate output folder.
+6. Record commands, tool versions, time zone, findings, and errors.
+7. Treat filenames and extensions as claims; verify content using signatures.
+
+Notation used below
+-------------------
+<file>       replace with a filename
+<dir>        replace with a directory
+<image>      disk or memory image
+<pcap>       packet-capture file
+<output>     new output file or directory
+[options]    optional arguments
+
+Shell safety: quote paths containing spaces, for example:
+  file "Evidence Files/photo.jpg"
+
+
+1. FILE IDENTIFICATION — file, stat, ls, find
+================================================
+
+file — Identifies content from magic bytes/signatures instead of the extension.
+  file <file>                    Identify one file.
+  file *                         Identify items in the current directory.
+  file -k <file>                 Keep checking for additional matching types.
+  file -z <file>                 Inspect inside some compressed files.
+  Example: file suspicious.jpg
+
+stat — Shows size, permissions, inode, and access/modify/change/birth times.
+  stat <file>                    Full metadata report.
+  stat -c '%n | %s | %y' <file> Custom output: name, bytes, modification time.
+  Note: ctime is metadata-change time on Linux, not file-creation time.
+
+ls — Lists directory entries and basic metadata.
+  ls -lah <dir>                  Long listing, including hidden files and sizes.
+  ls -lai <dir>                  Include inode numbers.
+  ls -lt --full-time <dir>       Sort by modification time with precise times.
+
+find — Recursively locates files by name, type, size, or time.
+  find <dir> -type f             List regular files.
+  find <dir> -type f -iname '*.jpg'
+                                 Find JPEG extensions, case-insensitively.
+  find <dir> -type f -size +10M  Find files larger than 10 MiB.
+  find <dir> -type f -mtime -7   Modified within the last seven 24-hour periods.
+  find <dir> -type f -print0 | xargs -0 sha256sum
+                                 Hash files safely, including unusual filenames.
+
+
+2. TEXT EXTRACTION AND SEARCH — strings, grep, ripgrep, cut, awk, sed
+=====================================================================
+
+strings — Extracts printable character sequences from binary data.
+  strings <file>                 ASCII/default strings.
+  strings -a -n 6 <file>         Scan all data; minimum length six.
+  strings -el <file>             Little-endian UTF-16 strings (common on Windows).
+  strings -t x <file>            Include hexadecimal offsets.
+
+grep — Searches text for a word or regular expression.
+  grep -n -i 'password' <file>   Show line numbers; ignore case.
+  grep -RIn 'keyword' <dir>      Search a directory recursively.
+  grep -aob 'PK' <file>          Treat binary as text; print byte offsets.
+
+ripgrep (rg) — Fast recursive search that respects ignore rules by default.
+  rg -n -i 'keyword' <dir>       Recursive, case-insensitive search.
+  rg -uuu 'keyword' <dir>        Include hidden and ignored files and binaries.
+  rg -l 'keyword' <dir>          Print only matching filenames.
+
+cut — Selects fields or character ranges from each text line.
+  cut -d, -f1,3 <file.csv>       Print comma-separated fields 1 and 3.
+  cut -c1-20 <file>              Print characters 1 through 20.
+
+awk — Filters records and performs field-based reporting.
+  awk -F, '{print $1, $3}' <file.csv>
+                                 Print fields 1 and 3 using comma delimiter.
+  awk '$5 > 1000 {print}' <file> Print rows whose fifth field is over 1000.
+
+sed — Selects or transforms text streams; omit -i to avoid changing evidence.
+  sed -n '1,40p' <file>          Print lines 1–40.
+  sed -n '/keyword/=' <file>     Print matching line numbers.
+  sed 's/secret/[REDACTED]/g' <file> > <output>
+                                 Create a redacted copy without editing input.
+
+
+3. HEX AND BINARY INSPECTION — xxd, hexdump, od, hexedit
+=========================================================
+
+xxd — Produces a hexadecimal dump or converts a dump back to bytes.
+  xxd <file> | less              Inspect hexadecimal and ASCII columns.
+  xxd -l 64 <file>               Show the first 64 bytes.
+  xxd -s 0x100 -l 32 <file>      Show 32 bytes beginning at offset 0x100.
+  xxd -r <dump.txt> <output>     Reverse a plain xxd dump into binary.
+
+hexdump — Displays bytes in selectable formats.
+  hexdump -C <file> | less       Canonical hex plus ASCII view.
+  hexdump -C -n 64 <file>        First 64 bytes only.
+
+od — Displays bytes as octal, hexadecimal, decimal, or characters.
+  od -Ax -tx1z <file> | less     Hex offsets, hex bytes, and printable text.
+  od -An -tx1 -N16 <file>        First 16 bytes without the address column.
+
+hexedit — Interactive terminal hex viewer/editor.
+  hexedit <copy-of-file>         Open an evidence copy interactively.
+  Caution: it can modify data. Never open original evidence for editing.
+
+
+4. METADATA — exiftool, identify
+================================
+
+exiftool — Reads metadata from images, documents, audio, video, and more.
+  exiftool <file>                Display available metadata.
+  exiftool -G1 -a -s <file>      Show groups, duplicates, and tag names.
+  exiftool -time:all -a -G1 <file>
+                                 Show all recognized time fields.
+  exiftool -csv <dir> > metadata.csv
+                                 Export directory metadata to CSV.
+  Caution: exiftool can write tags; use read-only commands on evidence.
+
+identify (ImageMagick) — Reports image format, geometry, depth, and colorspace.
+  identify <image>               Brief image properties.
+  identify -verbose <image>      Detailed properties and embedded profiles.
+
+
+5. EMBEDDED FILES — binwalk, foremost, scalpel
+===============================================
+
+binwalk — Finds signatures and compressed/embedded data within a file.
+  binwalk <file>                 Scan and show signature offsets.
+  binwalk -e <file>              Extract recognized embedded content.
+  binwalk -Me <file>             Recursive extraction (may create many files).
+  Tip: run extraction in an empty output/work directory.
+
+foremost — File carver that recovers data by headers, footers, and structure.
+  foremost -i <image> -o <output>
+                                 Carve supported types into output directory.
+  foremost -t jpg,pdf -i <image> -o <output>
+                                 Carve only JPEG and PDF files.
+  Note: carved files may lack original names, paths, and timestamps.
+
+scalpel — Configurable signature-based file carver.
+  scalpel <image> -o <output>     Carve types enabled in scalpel.conf.
+  scalpel -c <config> <image> -o <output>
+                                 Use a specific configuration.
+
+
+6. ARCHIVES — unzip, 7z, tar, gzip, bzip2, xz
+================================================
+
+unzip — Lists, tests, or extracts ZIP archives.
+  unzip -l <file.zip>            List without extracting.
+  unzip -t <file.zip>            Test integrity.
+  unzip <file.zip> -d <output>   Extract into a selected directory.
+
+7z — Handles 7z, ZIP, and many other archive formats.
+  7z l <archive>                 List contents.
+  7z t <archive>                 Test archive.
+  7z x <archive> -o<output>      Extract with paths (no space after -o).
+
+tar — Lists or extracts tar archives; compression is inferred with -a or suffix.
+  tar -tvf <file.tar>            List contents verbosely.
+  tar -xf <file.tar> -C <output> Extract to output directory.
+  tar -xzf <file.tar.gz> -C <output>
+                                 Extract a gzip-compressed tar archive.
+
+gzip / bzip2 / xz — Single-stream compressors often used around tar archives.
+  gzip -t <file.gz>              Test gzip integrity.
+  gzip -cd <file.gz> > <output>  Decompress to a new file; preserve input.
+  bzip2 -tv <file.bz2>           Test bzip2 integrity.
+  bzip2 -cd <file.bz2> > <output>
+  xz -tv <file.xz>               Test xz integrity.
+  xz -cd <file.xz> > <output>
+  Security: inspect archive paths before extraction to avoid path traversal.
+
+
+7. FILE SIGNATURES — file, binwalk, TrID
+=========================================
+
+file — Compares content against the system magic database (see section 1).
+  file -k <file>                 Report multiple possible signature matches.
+
+binwalk — Finds signatures at offsets, useful for concatenated/embedded data.
+  binwalk <file>                 Report signature names and offsets.
+
+TrID — Identifies a file statistically using a definitions database.
+  trid <file>                    Show probable file types and confidence.
+  Note: TrID is useful when file has no extension, but results are hypotheses.
+
+Common signatures: JPEG FF D8 FF; PNG 89 50 4E 47; PDF 25 50 44 46;
+ZIP/modern Office 50 4B 03 04; Windows PE 4D 5A. A header alone is not proof.
+
+
+8. STEGANOGRAPHY — steghide, zsteg, stegseek, StegSolve
+========================================================
+
+steghide — Embeds/extracts data in supported JPEG, BMP, WAV, and AU carriers.
+  steghide info <file>           Check carrier information.
+  steghide extract -sf <file> -xf <output>
+                                 Extract; prompts for passphrase.
+
+zsteg — Detects hidden data in PNG and BMP bit planes/channels.
+  zsteg <image.png>              Run common checks.
+  zsteg -a <image.png>           Try all known methods (verbose output).
+  zsteg -E '<payload-name>' <image.png> > <output>
+                                 Extract a payload named by scan results.
+
+stegseek — Fast steghide passphrase recovery using an authorized wordlist.
+  stegseek <file> <wordlist>     Attempt recovery and extraction.
+  stegseek --seed <file>         Detect/recover some unencrypted steghide data.
+
+StegSolve — Java GUI for viewing color planes and applying image transforms.
+  java -jar stegsolve.jar        Open GUI, then File > Open and inspect planes.
+  Look for anomalies in individual RGB/alpha bits, inversion, or frame changes.
+
+
+9. IMAGES — ImageMagick, pngcheck, pngcrush, zbarimg
+===================================================
+
+ImageMagick — Image inspection/conversion suite (`identify`, `magick`).
+  identify -verbose <image>      Inspect format and properties.
+  magick <image> -separate <output-%d.png>
+                                 Separate color channels into new images.
+  magick <image.gif> <frame-%03d.png>
+                                 Extract animation frames.
+
+pngcheck — Validates PNG structure and lists chunks.
+  pngcheck <image.png>           Check for structural/CRC errors.
+  pngcheck -v <image.png>        Verbosely list chunks and properties.
+
+pngcrush — Rewrites/optimizes PNGs and can expose or remove ancillary chunks.
+  pngcrush -n -v <image.png>     Analyze without writing output.
+  pngcrush <image.png> <output.png>
+                                 Create a recompressed copy.
+
+zbarimg — Reads QR codes and barcodes from image files.
+  zbarimg <image>                Decode and display type plus payload.
+  zbarimg --raw <image>          Print payload only.
+
+
+10. AUDIO — Audacity, Sonic Visualiser, sox, ffmpeg
+===================================================
+
+Audacity — GUI waveform editor/viewer. Import a copy, switch tracks between
+waveform and spectrogram, inspect unusual frequency bands, and export selections.
+
+Sonic Visualiser — GUI for detailed waveform/spectrogram and annotation work.
+Open audio, add a spectrogram pane, then adjust frequency range and color scale.
+
+sox — Command-line audio information and processing utility.
+  soxi <audio>                   Show format, rate, channels, duration, encoding.
+  sox <audio> -n stat            Print signal statistics (some output on stderr).
+  sox <audio> -n spectrogram -o <output.png>
+                                 Generate a spectrogram image.
+
+ffmpeg / ffprobe — Inspects streams and converts or extracts media.
+  ffprobe -hide_banner <media>   Show container and stream metadata.
+  ffprobe -show_streams -show_format <media>
+                                 Detailed machine-readable inspection.
+  ffmpeg -i <video> -vn -c:a copy <output-audio>
+                                 Copy audio stream without re-encoding if valid.
+  ffmpeg -i <video> <frame-%04d.png>
+                                 Extract all video frames.
+
+
+11. NETWORK/PCAP — Wireshark, tshark, tcpdump, NetworkMiner, Zeek
+================================================================
+
+Wireshark — GUI packet analyzer. Open a capture, inspect conversations/streams,
+use display filters, follow TCP/HTTP streams, and export transferred objects.
+  Useful filters: ip.addr == 10.0.0.5, dns, http, tcp.stream == 3,
+                  tcp.flags.syn == 1 && tcp.flags.ack == 0
+
+tshark — Wireshark's command-line analyzer.
+  tshark -r <pcap>               Read capture and summarize packets.
+  tshark -r <pcap> -Y 'dns'     Apply a display filter.
+  tshark -r <pcap> -q -z conv,tcp
+                                 List TCP conversations.
+  tshark -r <pcap> -T fields -e frame.time -e ip.src -e ip.dst
+                                 Export selected fields.
+  tshark -r <pcap> --export-objects http,<output>
+                                 Export HTTP objects.
+
+tcpdump — Captures or reads packets using capture/BPF filters.
+  tcpdump -nn -r <pcap>          Read without name/port resolution.
+  tcpdump -nn -r <pcap> 'host 10.0.0.5 and port 80'
+                                 Filter by host and port.
+  tcpdump -i <interface> -s 0 -w <output.pcap>
+                                 Live capture full packets (authorization needed).
+
+NetworkMiner — GUI network forensic analysis tool that organizes hosts,
+sessions, credentials, files, and images reconstructed from a PCAP.
+
+Zeek — Converts network traffic into structured protocol/activity logs.
+  zeek -r <pcap>                 Produce logs such as conn.log and dns.log.
+  zeek-cut id.orig_h id.resp_h service < conn.log
+                                 Select named columns from a Zeek log.
+  Note: run in a dedicated output directory to keep generated logs together.
+
+
+12. DISK IMAGES — Autopsy, The Sleuth Kit, FTK Imager, TestDisk
+================================================================
+
+Autopsy — GUI forensic platform. Create a case, add a disk image/data source,
+choose ingest modules, review results, tag evidence, and generate a report.
+
+The Sleuth Kit (TSK) — Command-line filesystem and disk-image analysis suite.
+Core commands `mmls`, `fsstat`, `fls`, and `icat` are covered in section 13.
+
+FTK Imager — GUI for previewing media, acquiring forensic images, hashing,
+mounting images, and exporting files. Prefer read-only preview/mount options.
+
+TestDisk — Interactive partition recovery and filesystem repair tool.
+  testdisk <image>               Analyze partitions in an image/copy.
+  Caution: TestDisk can write partition structures. Analyze copies and avoid
+  write operations unless recovery changes are explicitly intended.
+
+
+13. FILESYSTEMS — fls, icat, mmls, fsstat, blkid
+=================================================
+
+mmls — Displays partition layout and start sectors in a disk image.
+  mmls <image>                   List partition table and sector offsets.
+  Record the Start value for the target partition; TSK uses sectors with -o.
+
+fsstat — Reports detailed filesystem information.
+  fsstat -o <sector-offset> <image>
+                                 Inspect filesystem at partition offset.
+
+fls — Lists allocated/deleted files and directories from a filesystem image.
+  fls -o <offset> <image>        List root directory entries.
+  fls -r -p -o <offset> <image> Recursively list with full paths.
+  fls -r -m / -o <offset> <image> > bodyfile.txt
+                                 Create timeline body-file input.
+  An asterisk usually marks a deleted entry; the number is its metadata address.
+
+icat — Extracts file content using its metadata/inode address.
+  icat -o <offset> <image> <inode> > <output>
+                                 Recover allocated content to a new file.
+  icat -r -o <offset> <image> <inode> > <output>
+                                 Attempt recovery of a deleted file.
+
+blkid — Identifies block-device filesystem types, labels, and UUIDs.
+  blkid                           List recognized block devices (may need root).
+  blkid -p <image>               Probe filesystem signature in an image/file.
+
+Offset example:
+  mmls disk.dd                    # suppose partition starts at sector 2048
+  fsstat -o 2048 disk.dd
+  fls -r -p -o 2048 disk.dd
+  icat -o 2048 disk.dd 128 > recovered-file
+
+
+14. DELETED-FILE RECOVERY — PhotoRec, TestDisk, foremost, scalpel
+================================================================
+
+PhotoRec — Signature-based carver bundled with TestDisk.
+  photorec <image>               Interactive recovery to a separate destination.
+  It ignores filesystem names/paths, so results need validation and renaming.
+
+TestDisk — Can list/copy deleted files on supported filesystems and repair some
+partition/filesystem structures. Use non-writing copy/recovery actions first.
+
+foremost / scalpel — Signature carvers described in section 5.
+
+Recovery order: first try filesystem-aware recovery (`fls` + `icat`, TestDisk)
+to retain context; use carving when metadata is unavailable. Hash every output.
+
+
+15. MEMORY/RAM — Volatility 3, MemProcFS, Rekall
+================================================
+
+Volatility 3 — Plugin-based memory image analysis framework.
+  vol -f <memory.raw> windows.info
+                                 Identify Windows/kernel information.
+  vol -f <memory.raw> windows.pslist
+                                 List processes.
+  vol -f <memory.raw> windows.pstree
+                                 Show process relationships.
+  vol -f <memory.raw> windows.netscan
+                                 Find network endpoints/connections.
+  vol -f <memory.raw> windows.cmdline
+                                 Show process command lines.
+  vol -f <memory.raw> windows.filescan
+                                 Scan for file objects.
+  vol -f <memory.raw> windows.dumpfiles --virtaddr <address>
+                                 Dump a selected file object (check plugin help).
+  Use: vol <plugin> --help       Confirm exact options for installed version.
+
+MemProcFS — Mounts a memory image as a virtual filesystem and exposes processes,
+registry, network, and forensic artifacts as files. Typical launcher:
+  memprocfs -device <memory.raw> -mount <mountpoint>
+  Command names/options vary by operating system build; consult bundled help.
+
+Rekall — Memory framework whose common workflow is `rekall -f <image> <plugin>`.
+It is largely unmaintained/legacy; prefer Volatility 3 for new investigations.
+
+
+16. PDF ANALYSIS — pdfinfo, pdftotext, pdfimages, qpdf, peepdf
+=============================================================
+
+pdfinfo — Reports PDF metadata, page count, version, encryption, and dimensions.
+  pdfinfo <file.pdf>
+
+pdftotext — Extracts visible/searchable text.
+  pdftotext -layout <file.pdf> <output.txt>
+                                 Try to preserve page layout.
+  pdftotext -f 1 -l 3 <file.pdf> <output.txt>
+                                 Extract pages 1 through 3.
+
+pdfimages — Lists or extracts embedded raster images.
+  pdfimages -list <file.pdf>      List image objects.
+  pdfimages -all <file.pdf> <output-prefix>
+                                 Extract images in their native/usable formats.
+
+qpdf — Checks structure, reports encryption, and rewrites PDFs safely to copies.
+  qpdf --check <file.pdf>        Validate structure.
+  qpdf --show-encryption <file.pdf>
+                                 Display encryption parameters.
+  qpdf --qdf --object-streams=disable <file.pdf> <output.pdf>
+                                 Create a more inspectable copy.
+
+peepdf — Interactive PDF analysis, including objects, JavaScript, and anomalies.
+  peepdf <file.pdf>              Analyze and summarize.
+  peepdf -i <file.pdf>           Interactive console (version dependent).
+  Treat active content as hostile; analyze in an isolated environment.
+
+
+17. OFFICE DOCUMENTS — oletools, olevba, unzip, exiftool
+========================================================
+
+oletools — Python tools for OLE and OOXML document analysis.
+  oleid <document>               Check indicators such as macros/encryption.
+  olemeta <document>             Show OLE metadata.
+  olevba <document>              Extract/analyze VBA macros and suspicious terms.
+  oleobj <document>              Extract embedded objects to a safe output area.
+  rtfobj <document.rtf>          Find/extract objects embedded in RTF.
+
+olevba — The macro-analysis member of oletools.
+  olevba -a <document>           Analyze macros.
+  olevba --decode <document>     Attempt to decode obfuscated strings.
+  Never enable or execute a document's macros during initial analysis.
+
+unzip — DOCX/XLSX/PPTX files are ZIP-based OOXML packages.
+  unzip -l <document.docx>       List internal XML, relationships, and media.
+  unzip <document.docx> -d <output>
+                                 Extract package for inspection.
+
+exiftool — Reads document author, application, company, and time metadata.
+  exiftool -G1 -a -s <document>
+
+
+18. WINDOWS ARTIFACTS — RegRipper, Eric Zimmerman's Tools, EvtxECmd, PECmd
+============================================================================
+
+RegRipper — Runs plugins against offline Windows registry hives.
+  rip.pl -r <hive> -f <profile>  Run a profile against a hive.
+  rip.pl -r NTUSER.DAT -a        Run applicable plugins (version dependent).
+
+Eric Zimmerman's Tools — Windows forensic utilities, commonly including:
+  MFTECmd  Parse $MFT and related NTFS records.
+  EvtxECmd Parse Windows event logs.
+  PECmd    Parse Windows Prefetch.
+  JLECmd   Parse Jump Lists.
+  LECmd    Parse LNK shortcut files.
+  RBCmd    Parse Recycle Bin artifacts.
+Most accept `-f <file>` or `-d <directory>` and `--csv <output-directory>`;
+run `<tool> --help` because switches differ between utilities/releases.
+
+EvtxECmd — Parses `.evtx` logs into CSV/JSON and can apply event maps.
+  EvtxECmd.exe -f <log.evtx> --csv <output>
+  EvtxECmd.exe -d <logs-dir> --csv <output>
+
+PECmd — Parses Windows Prefetch, useful for evidence of program execution.
+  PECmd.exe -f <file.pf> --csv <output>
+  PECmd.exe -d <prefetch-dir> --csv <output>
+
+
+19. REGISTRY — RegRipper, Registry Explorer, regipy
+===================================================
+
+RegRipper — Plugin-driven registry extraction (see section 18). Match each hive
+with suitable plugins: SYSTEM, SOFTWARE, SAM, SECURITY, NTUSER.DAT, UsrClass.dat.
+
+Registry Explorer — GUI for offline hives, transaction-log replay, searching,
+bookmarks, and exports. Load a copied hive with its `.LOG1`/`.LOG2` files when
+available so deleted/recent changes may be reconstructed.
+
+regipy — Python library/CLI for offline Windows registry parsing.
+  registry-dump <hive>           Recursively dump keys/values (release dependent).
+  registry-parse-header <hive>   Inspect hive header (release dependent).
+  Check installed entry points with `regipy --help` or package documentation.
+
+
+20. EVENT LOGS — EvtxECmd, python-evtx
+======================================
+
+EvtxECmd — High-performance `.evtx` parser; examples are in section 18.
+
+python-evtx — Python library shipping utilities for reading EVTX XML records.
+  evtx_dump.py <log.evtx> > <output.xml>
+                                 Dump records as XML (script name may vary).
+  evtx_dump.py <log.evtx> | less
+                                 Review records without editing the source.
+
+Important Windows logs include Security, System, Application, PowerShell,
+TaskScheduler, Defender, RDP/TerminalServices, and Sysmon when installed.
+
+
+21. BROWSER ARTIFACTS — Hindsight, DB Browser for SQLite, sqlite3
+================================================================
+
+Hindsight — Parses Chromium-based browser profiles into a report.
+  hindsight.py -i <browser-profile> -o <output-name>
+  Can report URLs, downloads, cookies, cache, preferences, and extensions.
+  Use `hindsight.py --help`; launcher syntax varies by installation.
+
+DB Browser for SQLite — GUI for inspecting copied browser SQLite databases.
+Use Browse Data/Execute SQL; avoid saving changes to the evidence database.
+
+sqlite3 — Command-line inspection of SQLite history/cookie databases.
+  sqlite3 -readonly <database>   Open read-only when supported.
+  .tables                        List tables (inside sqlite3 shell).
+  .schema urls                   Show a table's schema.
+  SELECT url,title,last_visit_time FROM urls LIMIT 20;
+                                 Example Chromium History query.
+  sqlite3 -readonly <database> '.recover' > recovered.sql
+                                 Attempt logical recovery into a separate script.
+Copy associated `-wal` and `-shm` files with a live database; they may hold data.
+
+
+22. EMAIL — readpst, ripmime, munpack
+=====================================
+
+readpst — Converts Outlook PST/OST content into mailbox/message files.
+  readpst -r -o <output> <mailbox.pst>
+                                 Recursive extraction preserving folder structure.
+  readpst -j 4 -r -o <output> <mailbox.pst>
+                                 Use four jobs if supported.
+
+ripmime — Extracts MIME parts and attachments from a message file.
+  ripmime -i <message.eml> -d <output>
+
+munpack — Extracts MIME attachments from one or more messages.
+  munpack -C <output> <message.eml>
+
+Preserve complete headers. Review Received chains, Message-ID, Date/time zones,
+authentication results (SPF/DKIM/DMARC), MIME boundaries, and attachment hashes.
+
+
+23. HASHING — md5sum, sha1sum, sha256sum, hashdeep
+===================================================
+
+md5sum / sha1sum — Legacy hashes useful for matching known values, but collision-
+prone and unsuitable alone as strong integrity proof.
+  md5sum <file>
+  sha1sum <file>
+
+sha256sum — Preferred general-purpose integrity hash in this list.
+  sha256sum <file>
+  sha256sum <file> > <file.sha256>
+  sha256sum -c <file.sha256>     Verify saved hash list.
+
+hashdeep — Recursively hashes sets of files and supports audit mode.
+  hashdeep -r <dir> > hashes.txt
+                                 Create recursive hash listing.
+  hashdeep -r -a -k hashes.txt <dir>
+                                 Audit directory against known hashes.
+
+For acquisition, record algorithm, exact filename/device, byte size, date/time,
+operator, command/tool version, and result. Prefer SHA-256 or stronger.
+
+
+24. PASSWORD-PROTECTED FILES — John, Hashcat, zip2john
+======================================================
+
+Use password recovery only on data you own or are explicitly authorized to test.
+Work from extracted hashes; do not repeatedly modify the protected evidence.
+
+zip2john — Converts supported ZIP encryption metadata into John's hash format.
+  zip2john <file.zip> > zip.hash
+
+John the Ripper — Tests password candidates against extracted hashes.
+  john --wordlist=<wordlist> zip.hash
+  john --show zip.hash           Show recovered results.
+  john --status                  Show current session status.
+
+Hashcat — GPU/CPU password-recovery tool requiring the correct hash mode.
+  hashcat -m <mode> <hashfile> <wordlist>
+  hashcat -m <mode> <hashfile> --show
+  hashcat --example-hashes | less
+                                 Review formats/modes before choosing a mode.
+Never guess a mode solely from a filename; identify the actual hash format.
+
+
+25. ENCODING/DECODING — base64, xxd, CyberChef
+================================================
+
+base64 — Encodes binary as text or decodes it; encoding is not encryption.
+  base64 <file> > <output.b64>   Encode.
+  base64 -d <input.b64> > <output>
+                                 Decode on GNU/Linux.
+  printf '%s' 'SGVsbG8=' | base64 -d
+                                 Decode a short literal safely.
+
+xxd — Can convert hexadecimal text and raw bytes.
+  printf '%s' '48656c6c6f' | xxd -r -p
+                                 Decode plain hex to `Hello`.
+  xxd -p <file> > <output.hex>   Encode bytes as plain hex.
+
+CyberChef — Browser-based transformation workspace. Chain operations such as
+From Base64, From Hex, URL Decode, Gunzip, XOR, and Extract Files. For sensitive
+evidence, use an approved offline/local instance rather than uploading data.
+
+
+26. QR CODES/BARCODES — zbarimg, ZXing
+=======================================
+
+zbarimg — Command-line decoder (see section 9).
+  zbarimg --raw <image>          Output decoded payload only.
+
+ZXing — Barcode library and tools supporting QR Code, Data Matrix, UPC, etc.
+CLI syntax depends on the installed wrapper; common Java builds use a command
+similar to `java -jar <zxing-cli.jar> <image>`. Verify with `--help`.
+Treat decoded URLs/commands as untrusted data; do not automatically open them.
+
+
+27. GENERAL BINARY ANALYSIS — Ghidra, radare2, objdump, readelf
+================================================================
+
+Ghidra — GUI reverse-engineering suite. Create a project, import a copy, allow
+auto-analysis, then inspect strings, symbols, functions, references, and decompiler
+output. Decompiled code is an approximation and must be validated against assembly.
+
+radare2 — Interactive command-line reverse-engineering framework.
+  r2 -A <binary>                 Open and run analysis.
+  iI                             Show binary information (inside r2).
+  afl                            List analyzed functions.
+  iz                             List strings.
+  pdf @ main                     Disassemble function `main`.
+  aaa                            Run deeper analysis (can be slow).
+  q                              Quit.
+
+objdump — Displays object-file headers, sections, symbols, and disassembly.
+  objdump -f <binary>            File header.
+  objdump -h <binary>            Section headers.
+  objdump -t <binary>            Symbol table.
+  objdump -d <binary> | less     Disassemble executable sections.
+  objdump -s -j .rodata <binary> Dump read-only data section.
+
+readelf — Displays ELF-specific structures without executing the binary.
+  readelf -h <binary>            ELF header.
+  readelf -l <binary>            Program headers/segments.
+  readelf -S <binary>            Section headers.
+  readelf -s <binary>            Symbols.
+  readelf -d <binary>            Dynamic linking information.
+  readelf -n <binary>            Notes, often including build ID.
+
+
+28. MOBILE FORENSICS — ADB, ALEAPP, iLEAPP
+==========================================
+
+ADB (Android Debug Bridge) — Communicates with authorized Android devices.
+  adb devices -l                 List connected, authorized devices.
+  adb shell getprop              Show system properties.
+  adb shell pm list packages     List installed packages.
+  adb pull <device-path> <output>
+                                 Copy an accessible file to workstation.
+  adb bugreport <output.zip>     Collect diagnostic report.
+  `adb backup` is deprecated/disabled on many modern Android versions.
+  Enabling debugging or unlocking a device changes state; document every change.
+
+ALEAPP — Parses artifacts from Android filesystem extractions/backups.
+  aleappGUI                      Typical GUI launcher.
+  python aleapp.py -t fs -i <input> -o <output>
+                                 Representative CLI; confirm with `--help`.
+
+iLEAPP — Parses artifacts from iOS extractions/backups.
+  ileappGUI                      Typical GUI launcher.
+  python ileapp.py -t fs -i <input> -o <output>
+                                 Representative CLI; confirm with `--help`.
+
+
+29. TIMELINE ANALYSIS — Plaso/log2timeline, Timesketch
+======================================================
+
+log2timeline.py (Plaso) — Extracts timestamps/events into a Plaso storage file.
+  log2timeline.py <output.plaso> <image-or-dir>
+                                 Process a source (can take considerable time).
+  log2timeline.py --partition all <output.plaso> <disk-image>
+                                 Process all supported partitions.
+
+psort.py (Plaso) — Filters and exports events from a Plaso file.
+  psort.py -o l2tcsv -w <timeline.csv> <output.plaso>
+                                 Export a CSV timeline.
+  psort.py -q <filter> -o l2tcsv -w <filtered.csv> <output.plaso>
+                                 Apply a Plaso filter expression.
+
+Timesketch — Collaborative web timeline analysis. Import Plaso/CSV timelines,
+search events, apply analyzers, tag/comment findings, and create saved views.
+Normalize/record time zones before comparing events from different sources.
+
+
+30. ALL-IN-ONE FORENSIC SUITES — Autopsy, SIFT Workstation
+==========================================================
+
+Autopsy — Case-based GUI integrating filesystem analysis, keyword search, hash
+lookup, web artifacts, data carving, timelines, tagging, and reporting.
+
+SIFT Workstation — Linux forensic distribution containing many command-line and
+GUI tools. It supplies an environment, not a substitute for understanding each
+tool, validating output, documenting versions, and maintaining chain of custody.
+
+
+QUICK TRIAGE WORKFLOW
+=====================
+
+For a suspicious standalone file:
+  sha256sum <file>
+  stat <file>
+  file -k <file>
+  exiftool -G1 -a -s <file>
+  xxd -l 64 <file>
+  strings -a -n 6 <file> | less
+  binwalk <file>
+Then use a format-specific section above. Extract into a separate directory.
+
+For a disk image:
+  sha256sum <image>
+  mmls <image>
+  fsstat -o <partition-start-sector> <image>
+  fls -r -p -o <partition-start-sector> <image>
+  icat -o <partition-start-sector> <image> <inode> > <output>
+Hash and document each recovered file.
+
+For a PCAP:
+  capinfos <pcap>                Optional Wireshark utility: capture summary.
+  tshark -r <pcap> -q -z conv,tcp
+  tshark -r <pcap> -Y 'dns'
+  zeek -r <pcap>                 Run from a dedicated output directory.
+
+For a memory image:
+  sha256sum <image>
+  vol -f <image> windows.info
+  vol -f <image> windows.pslist
+  vol -f <image> windows.pstree
+  vol -f <image> windows.netscan
+
+
+FINAL INTERPRETATION REMINDERS
+==============================
+
+* One tool result is rarely conclusive; corroborate with another artifact/tool.
+* A timestamp describes a particular event and clock, not necessarily user intent.
+* Absence of evidence is not evidence of absence.
+* File carving finds byte patterns, so false positives and incomplete files occur.
+* Validate recovered files with signatures, structure checks, hashes, and context.
+* Time-zone, clock drift, daylight-saving rules, and timestamp semantics matter.
+* Never execute unknown files or active document content on your normal system.
+* Keep originals, working copies, extracted outputs, notes, and reports separate.
+
+End of study sheet.

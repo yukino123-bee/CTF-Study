@@ -1,0 +1,27 @@
+.sample-output {
+  margin: -4px 0 14px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+  background: #0d131c;
+}
+.sample-output span {
+  display: block;
+  padding: 7px 13px;
+  border-bottom: 1px solid var(--line);
+  color: var(--accent2);
+  font: 700 9px ui-monospace, monospace;
+  letter-spacing: .13em;
+}
+.sample-output pre {
+  margin: 0;
+  padding: 13px 15px;
+  color: #9eacc0;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+body.light .sample-output { background: #eef3f5; }
+body.light .sample-output pre { color: #52616c; }
+.sample-output > span{font-size:11px!important}
+.sample-output pre{font-size:14px!important;line-height:1.65!important}

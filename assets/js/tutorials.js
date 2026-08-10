@@ -1,0 +1,104 @@
+const tutorials=[
+{name:'ExifTool',use:'Metadata extraction',level:'Beginner',setup:'Use a copied image named photo.jpg. Never write metadata to original evidence.',steps:[
+['Identify the file','file photo.jpg','photo.jpg: JPEG image data, Exif standard, 4032x3024','Confirms the content is JPEG regardless of its filename.'],
+['Read all metadata','exiftool -G1 -a -s photo.jpg','[File] FileType : JPEG\n[EXIF] Make : Canon\n[EXIF] DateTimeOriginal : 2026:07:18 14:22:09\n[GPS] GPSLatitude : 14 deg 35 min 12.40 sec N','-G1 labels metadata groups, -a includes duplicate tags, and -s shows stable tag names.'],
+['Export a case folder','exiftool -csv evidence/ > metadata.csv','1 directories scanned\n12 image files read','The report is stored in metadata.csv; hash it if used as an exhibit.'],
+['Focus on timestamps','exiftool -time:all -G1 -a photo.jpg','[System] FileModifyDate : 2026:08:10 08:01:12+08:00\n[EXIF] DateTimeOriginal : 2026:07:18 14:22:09','Filesystem and embedded timestamps can disagree; document time zones and corroborate.']]},
+{name:'Binwalk',use:'Detect embedded/hidden files',level:'Beginner',setup:'Practice with firmware.bin or a suspicious copied file in an empty working directory.',steps:[
+['Scan signatures','binwalk firmware.bin','DECIMAL   HEXADECIMAL  DESCRIPTION\n0         0x0          DLOB firmware header\n65536     0x10000      gzip compressed data\n131072    0x20000      Squashfs filesystem','Offsets show where recognized byte signatures begin; they are leads, not proof.'],
+['Extract recognized content','binwalk -e firmware.bin','Scan Time: 2026-08-10\nTarget File: firmware.bin\nSignatures: 3\nExtraction: successful','Results appear in a directory such as _firmware.bin.extracted.'],
+['Inspect extracted results','find _firmware.bin.extracted -maxdepth 2 -type f -exec file {} \;','_firmware.bin.extracted/10000: gzip compressed data\n_firmware.bin.extracted/squashfs-root/etc/passwd: ASCII text','Validate extracted content with file and hashes; do not execute it.']]},
+{name:'Foremost',use:'File carving/recovery',level:'Intermediate',setup:'Use a disk-image copy named disk.dd and a new output directory name.',steps:[
+['Hash source evidence','sha256sum disk.dd','c2c95e8a9c1d...8b41d74f  disk.dd','Record the complete hash in case notes before processing.'],
+['Carve selected types','foremost -t jpg,pdf,png -i disk.dd -o carved','Processing: disk.dd\n|************************|\nFinish: 5 files extracted\njpg:= 3 pdf:= 1 png:= 1','Foremost searches signatures without relying on filesystem metadata.'],
+['Review the audit report','sed -n \'1,80p\' carved/audit.txt','Foremost version 1.5.7\nInput: disk.dd\nFiles written: 5','The report records configuration, source, and recovered counts.'],
+['Validate recovered files','find carved -type f ! -name audit.txt -exec file {} \; -exec sha256sum {} \;','carved/jpg/00000123.jpg: JPEG image data\n21c63a...  carved/jpg/00000123.jpg','Carved files may be partial and normally lose original names, paths, and timestamps.']]},
+{name:'Steghide',use:'Extract hidden data from images/audio',level:'Beginner',setup:'Use an authorized JPEG/BMP/WAV/AU carrier copy named carrier.jpg.',steps:[
+['Inspect carrier support','steghide info carrier.jpg','"carrier.jpg":\n  format: jpeg\n  capacity: 18.4 KB\nTry to get information about embedded data? (y/n)','Capacity is not proof that data is embedded.'],
+['Extract with a known passphrase','steghide extract -sf carrier.jpg -xf extracted.bin','Enter passphrase:\nwrote extracted data to "extracted.bin".','The passphrase prompt does not echo characters. Use -xf to control output location.'],
+['Identify and hash output','file extracted.bin && sha256sum extracted.bin','extracted.bin: Zip archive data\na8613f...  extracted.bin','Treat extracted material as separate evidence and never trust its extension.']]},
+{name:'Stegseek',use:'Detect/crack Steghide content',level:'Intermediate',setup:'Use only an authorized carrier and an approved wordlist. Password recovery can be resource intensive.',steps:[
+['Detect possible content','stegseek --seed carrier.jpg','StegSeek 0.6\n[i] Found (possible) seed: 8b3a...\n[i] Plain size: 248 byte','Seed recovery can detect some steghide payloads without a passphrase. Validate the result.'],
+['Try a wordlist','stegseek carrier.jpg wordlist.txt recovered.bin','[i] Found passphrase: "example"\n[i] Original filename: "notes.txt"\n[i] Extracting to "recovered.bin".','Success reveals the candidate passphrase and extracts the embedded file.'],
+['Validate','file recovered.bin && strings -n 6 recovered.bin | head','recovered.bin: ASCII text\nMeeting scheduled at 09:30','Record the wordlist, version, elapsed time, and output hash.']]},
+{name:'zsteg',use:'PNG/BMP steganography',level:'Intermediate',setup:'Use a copied lossless PNG or BMP named suspect.png.',steps:[
+['Run common checks','zsteg suspect.png','b1,rgb,lsb,xy  .. text: "CASE-TRAINING-42"\nb2,b,msb,xy    .. file: Zip archive data','The result names bit depth, channels, bit order, traversal, and interpretation. False positives are common.'],
+['Run exhaustive checks','zsteg -a suspect.png','imagedata .. text: "..."\nb2,b,msb,xy .. file: Zip archive data, at least v2.0','-a is noisy; prioritize structurally valid files and meaningful strings.'],
+['Extract a named payload','zsteg -E \'b2,b,msb,xy\' suspect.png > payload.zip','(No output on success; bytes are redirected to payload.zip.)','Use the exact result label, then validate the new file.'],
+['Validate extraction','file payload.zip && unzip -t payload.zip','payload.zip: Zip archive data\nNo errors detected in compressed data','A valid structure strengthens the finding but still requires context.']]},
+{name:'pngcheck',use:'Analyze PNG structure/errors',level:'Beginner',setup:'Use a copy named image.png.',steps:[
+['Basic validation','pngcheck image.png','OK: image.png (800x600, 32-bit RGB+alpha, non-interlaced, 95.2%).','A clean result means chunks and CRCs are structurally valid, not that content is benign.'],
+['List chunks','pngcheck -v image.png','chunk IHDR at offset 0x0000c, length 13\n  800 x 600 image, 32-bit RGB+alpha\nchunk tEXt at offset 0x00025, length 32\nchunk IDAT at offset 0x00051, length 8192','Unexpected text or trailing chunks deserve inspection.'],
+['Investigate an error','pngcheck -v broken.png','broken.png: CRC error in chunk IDAT (computed 7a22c1f0, expected 19aa83c4)\nERROR: broken.png','Preserve the original; repair only a copy and document the operation.']]},
+{name:'ImageMagick',use:'Image inspection/manipulation',level:'Beginner',setup:'Commands create derivatives from a copied image; never overwrite original evidence.',steps:[
+['Inspect properties','identify -verbose suspect.png','Image:\n  Format: PNG\n  Geometry: 800x600+0+0\n  Colorspace: sRGB\n  Depth: 8-bit','Review geometry, profiles, channels, and artifacts.'],
+['Separate channels','magick suspect.png -separate channel-%d.png','(No terminal output on success; channel-0.png through channel-3.png are created.)','Inspecting channels can reveal overlays or alpha-channel content.'],
+['Extract GIF frames','magick animation.gif frame-%03d.png','(No terminal output on success; frame-000.png, frame-001.png, ... are created.)','Compare frames for short-lived messages or changes.'],
+['Compare two images','magick compare original.png candidate.png difference.png','1542.8 (0.023541)','The metric quantifies difference; difference.png visualizes changed pixels.']]},
+{name:'Wireshark',use:'Graphical PCAP/network analysis',level:'Beginner',setup:'Open a copied training.pcap. Packet data can contain sensitive content.',steps:[
+['Open and orient','File → Open → training.pcap','Status bar: Packets: 12,482 · Displayed: 12,482 · Dropped: 0','Check capture duration, interfaces, and packet count in Statistics → Capture File Properties.'],
+['Review endpoints','Statistics → Endpoints → IPv4','Address          Packets   Bytes\n192.0.2.15       4,218     3.1 MB\n198.51.100.8     3,994     2.8 MB','High volume is a lead; compare roles, timing, and protocols.'],
+['Apply a display filter','dns || http || tls.handshake.type == 1','Displayed: 1,273 (10.2%)','Display filters hide packets from view but do not alter the PCAP.'],
+['Follow a stream','Right-click TCP packet → Follow → TCP Stream','GET /download/report.zip HTTP/1.1\nHost: example.invalid\nHTTP/1.1 200 OK','Stream reconstruction shows application conversation; encrypted TLS payload stays unreadable without keys.'],
+['Export transferred files','File → Export Objects → HTTP → Save All','3 objects exported to case-output/http/','Hash exports and record the filter/stream used to locate them.']]},
+{name:'TShark',use:'Terminal-based Wireshark',level:'Intermediate',setup:'Use training.pcap and a separate report directory.',steps:[
+['Summarize packets','tshark -r training.pcap | head','1 0.000000 192.0.2.15 → 198.51.100.8 TCP 74 51522 → 443 [SYN]\n2 0.021473 198.51.100.8 → 192.0.2.15 TCP 74 443 → 51522 [SYN, ACK]','-r reads a saved capture; no live capture occurs.'],
+['List conversations','tshark -r training.pcap -q -z conv,tcp','192.0.2.15:51522 <-> 198.51.100.8:443  824  1,204 kB  92.31 sec','Conversation statistics highlight major pairs and durations.'],
+['Export DNS fields','tshark -r training.pcap -Y dns -T fields -e frame.time -e ip.src -e dns.qry.name','Aug 10, 2026 08:14:22.102 +08  192.0.2.15  example.invalid','Use -Y for display filters and -T fields for structured reports.'],
+['Export HTTP objects','mkdir -p http-objects && tshark -r training.pcap --export-objects http,http-objects','47 packets read\n3 objects exported','Inspect and hash every exported object; object names may be unsafe.']]},
+{name:'Volatility 3',use:'RAM/memory forensics',level:'Advanced',setup:'Use an acquired memory image memory.raw. Plugin names/options depend on OS and Volatility release.',steps:[
+['Identify Windows context','vol -f memory.raw windows.info','Variable          Value\nKernel Base       0xf80002a00000\nIs64Bit           True\nNtSystemRoot      C:\\Windows','Confirm that the image is supported and note kernel/time information.'],
+['List process relationships','vol -f memory.raw windows.pstree','PID   PPID  ImageFileName\n4     0     System\n612   4     smss.exe\n3380  912   powershell.exe','Unexpected parent-child relationships are investigative leads.'],
+['Review network artifacts','vol -f memory.raw windows.netscan','Offset     Proto LocalAddr       ForeignAddr       State       PID Owner\n0x9e20...  TCPv4 192.0.2.15:51522 198.51.100.8:443 ESTABLISHED 3380 powershell.exe','Correlate PID, command line, process times, and PCAP/log evidence.'],
+['Review command lines','vol -f memory.raw windows.cmdline','PID  Process        Args\n3380 powershell.exe powershell.exe -NoProfile -File C:\\Temp\\collect.ps1','A command line may be truncated or stale; corroborate it.'],
+['Dump a selected artifact','vol -f memory.raw -o dumped windows.dumpfiles --virtaddr 0x9e2012345000','FileObject  FileName                 Result\n0x9e20...   \\Temp\\collect.ps1     file.0x9e20.dat','Identify and hash dumped content. Never execute it.']]},
+{name:'Autopsy',use:'Disk/filesystem forensics',level:'Beginner',setup:'Start with a disk image and its known SHA-256. Autopsy is case-based and GUI driven.',steps:[
+['Create the case','New Case → Name: Training-001 → choose case directory','Case Training-001 created\nCase number: TR-001\nExaminer: Student','Use a new case directory outside the evidence location.'],
+['Add data source','Add Data Source → Disk Image → disk.dd → verify time zone','Data source added: disk.dd\nSize: 1,073,741,824 bytes','Correct time-zone selection is essential for timeline interpretation.'],
+['Configure ingest','Enable File Type ID, Hash Lookup, Keyword Search, Web Artifacts, Recent Activity','Ingest started\nJobs running: 1','Choose modules deliberately; more modules increase time and generated data.'],
+['Review findings','Tree → Results → Extracted Content / Web Artifacts / Keyword Hits','Keyword Hits (18)\nWeb History (247)\nInteresting Files (6)','Tag relevant items and record why they matter; module results can contain false positives.'],
+['Generate a report','Generate Report → HTML → select tagged results','Report generated: reports/Training-001/index.html','Review the report, hash it, and keep it separate from raw evidence.']]},
+{name:'Sleuth Kit',use:'CLI disk/filesystem analysis',level:'Intermediate',setup:'Use disk.dd. TSK partition offsets are normally expressed in sectors.',steps:[
+['Find partitions','mmls disk.dd','Slot  Start       End         Length      Description\n000:  0000000000  0000002047  0000002048  Primary Table\n001:  0000002048  0002099199  0002097152  NTFS','Record the target partition Start value: 2048 in this example.'],
+['Inspect filesystem','fsstat -o 2048 disk.dd','File System Type: NTFS\nVolume Name: CASEDISK\nCluster Size: 4096','-o tells TSK where the filesystem begins.'],
+['List files recursively','fls -r -p -o 2048 disk.dd | head -30','r/r 36-128-1: Windows/System32/cmd.exe\nr/r * 128-128-1: Users/Alex/deleted.txt','An asterisk commonly identifies a deleted entry; the number is its metadata address.'],
+['Recover by metadata address','icat -o 2048 disk.dd 128-128-1 > recovered.txt','(No terminal output on success.)','Check the output type, size, content, and SHA-256.'],
+['Build timeline input','fls -r -m / -o 2048 disk.dd > bodyfile.txt && mactime -b bodyfile.txt > timeline.csv','(Files are created; errors are printed to the terminal.)','MACB flags represent modified, accessed, metadata-changed, and birth times.']]},
+{name:'TestDisk',use:'Partition/file recovery',level:'Intermediate',setup:'Operate on a copy or image. TestDisk can write partition changes, so avoid Write unless explicitly intended.',steps:[
+['Launch against image','testdisk disk.dd','TestDisk 7.2, Data Recovery Utility\nSelect a media and choose [Proceed]','Choose Create to save a log, then select the image.'],
+['Analyze partitions','Partition table type → Analyse → Quick Search','Disk disk.dd - 1073 MB\n P NTFS 0 32 33 130 138 8 2097152','P means primary. Validate start, size, filesystem, and expected files.'],
+['List files safely','Highlight partition → press P','dr-xr-xr-x 0 0 0 10-Aug-2026 Users\n-r--r--r-- 0 0 1248 10-Aug-2026 notes.txt','Listing is non-writing. Press C on a selected file to copy it elsewhere.'],
+['Copy recovered item','Select notes.txt → C → choose recovery directory → C','Copy done! 1 ok, 0 failed','Hash the copied file. Quit without Write when only extracting files.']]},
+{name:'PhotoRec',use:'Recover files from disk images',level:'Beginner',setup:'Use disk.dd and an empty recovery destination on a different filesystem.',steps:[
+['Launch','photorec disk.dd','PhotoRec 7.2, Data Recovery Utility\nDisk disk.dd - 1073 MB','Select the correct source image, never the destination disk.'],
+['Choose scope and types','File Opt → disable all → enable jpg, png, pdf; choose partition → Search','Please select if the partition filesystem was ext2/ext3/ext4 or Other','Choose Other for FAT/NTFS/exFAT/HFS+; choose Whole when filesystem metadata is damaged.'],
+['Select destination','Navigate to /case/recovered → press C','Pass 1 - Reading sector 2048/2097152\n5 files saved in recup_dir.1\nRecovery completed.','PhotoRec creates recup_dir.* folders and generic filenames.'],
+['Inventory results','find recovered -type f -print0 | xargs -0 file','recovered/recup_dir.1/f0001234.jpg: JPEG image data\nrecovered/recup_dir.1/f0008120.pdf: PDF document, version 1.7','Validate, hash, deduplicate, and manually restore context.']]},
+{name:'John the Ripper',use:'Password/hash analysis',level:'Intermediate',setup:'Use only authorized password material. Extract the correct hash representation first.',steps:[
+['Extract ZIP hash','zip2john protected.zip > zip.hash','protected.zip/data.txt:$pkzip$1*2*2*0*...$/pkzip$:data.txt:protected.zip','This is cracking metadata, not a normal SHA-256 digest.'],
+['Inspect detected format','john --show=left zip.hash','0 password hashes cracked, 1 left','If the format is ambiguous, use john --list=formats and tool documentation.'],
+['Run an approved wordlist','john --wordlist=wordlist.txt zip.hash','Loaded 1 password hash (PKZIP)\nexample          (protected.zip/data.txt)\n1g 0:00:00:02 DONE','Record the wordlist, rules, version, duration, and hardware.'],
+['Show recovered result','john --show zip.hash','protected.zip/data.txt:example:data.txt:protected.zip\n1 password hash cracked, 0 left','Handle recovered credentials as sensitive evidence.']]},
+{name:'Hashcat',use:'Password/hash recovery',level:'Advanced',setup:'Use an authorized extracted hash and identify the exact mode. This example uses a fictional NTLM training hash.',steps:[
+['Identify the mode','hashcat --example-hashes | less','Hash mode #1000\nName: NTLM\nExample: b4b9b02e6f09a9bd760f388b67351e2b','Do not choose a mode based only on hash length.'],
+['Benchmark mode','hashcat -b -m 1000','Hashmode: 1000 - NTLM\nSpeed.#1.........: 38.2 GH/s','Benchmark output is approximate and hardware-dependent.'],
+['Run wordlist attack','hashcat -m 1000 hashes.txt wordlist.txt --session training','Session..........: training\nStatus...........: Cracked\nHash.Mode........: 1000 (NTLM)\nRecovered........: 1/1 (100.00%)','Use --session so work can be monitored or restored.'],
+['Display result','hashcat -m 1000 hashes.txt --show','b4b9b02e6f09a9bd760f388b67351e2b:example','Protect results and record exact attack parameters.']]},
+{name:'7-Zip',use:'Archives/compressed files',level:'Beginner',setup:'Use an archive copy named evidence.7z and extract to a new directory.',steps:[
+['List without extraction','7z l evidence.7z','Type = 7z\nPhysical Size = 4096\nDate       Time   Attr  Size  Name\n2026-08-10 09:15 ....A 1248 notes.txt','Review names for absolute paths or ../ traversal before extraction.'],
+['Test integrity','7z t evidence.7z','Testing archive: evidence.7z\nEverything is Ok\nFiles: 3','Integrity success does not prove content is safe.'],
+['Extract with paths','mkdir extracted && 7z x evidence.7z -oextracted','Extracting archive: evidence.7z\nEverything is Ok\nFiles: 3\nSize: 28491','There is no space after -o. Identify and hash outputs.'],
+['Handle password prompt','7z x protected.7z -osecure-output','Enter password (will not be echoed):\nEverything is Ok','Avoid placing passwords directly on a shared command line.']]},
+{name:'CyberChef',use:'Encoding, decoding and data transformations',level:'Beginner',setup:'Prefer an approved offline CyberChef instance for sensitive data.',steps:[
+['Decode Base64','Paste SGVsbG8gRm9yZW5zaWNzIQ== → add From Base64','Hello Forensics!','Base64 is encoding, not encryption. Preserve the original input.'],
+['Decode a layered value','Paste 534756736247383d → From Hex → From Base64','Hello','Recipes execute top to bottom; each operation transforms the previous result.'],
+['Use Magic carefully','Paste unknown encoded sample → add Magic','Recipe suggestion: From Base64\nEntropy: 3.18','Magic proposes transformations; validate suggestions manually.'],
+['Export reproducibly','Save recipe → download output → hash output','SHA-256: record with case notes','Document the recipe operations and parameters, not merely the final output.']]},
+{name:'Ghidra',use:'Binary analysis and reverse engineering',level:'Advanced',setup:'Use an isolated analysis environment and a copied binary. Never run unknown software.',steps:[
+['Triage before import','sha256sum sample.exe && file sample.exe','9f3a1c...  sample.exe\nsample.exe: PE32+ executable (console) x86-64, for MS Windows','Record identity and architecture before static analysis.'],
+['Create project and import','File → New Project → Non-Shared → Import sample.exe','Format: Portable Executable (PE)\nLanguage: x86:LE:64:default\nCompiler: windows','Confirm format/language rather than accepting a clearly incorrect guess.'],
+['Run auto-analysis','Open in CodeBrowser → Analyze → Analyze All','Analysis completed\nFunctions created: 186\nReferences created: 2,941','Default analyzers are a starting point; results are inferred.'],
+['Review strings and references','Search → For Strings → select URL → References','00403120 "https://example.invalid/api"\nXREF[1]: FUN_00401280 at 0040134a','Cross-references show code that uses the string.'],
+['Inspect a function','Open FUN_00401280 in Listing and Decompiler','int FUN_00401280(void) {\n  connect_to_host("example.invalid",443);\n  return 0;\n}','Decompiler output is approximate; verify important behavior against assembly and data flow.'],
+['Export findings','File → Export Program or copy selected decompiler text into case notes','Exported to sample_analysis.txt','Record addresses, function names, tool version, analyst interpretations, and supporting artifacts.']]}
+];
