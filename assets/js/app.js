@@ -102,21 +102,23 @@ function render(){
   renderCategories(); renderSidebar(); filter(); updateProgress(); bind();
 }
 function topicsFor(category){return sections.filter(s=>(categoryTopics[category]||[]).includes(s.num))}
+function topicSequence(){return topicsFor(activeCategory)}
+function isUnlocked(topic){const list=topicSequence(),position=list.findIndex(s=>s.num===topic.num);return position<=0||state.done.includes(list[position-1].num)}
 function renderCategories(){
   $('#categorySelect').innerHTML=categories.map(name=>`<option value="${attr(name)}" ${name===activeCategory?'selected':''}>${esc(name)} (${topicsFor(name).length})</option>`).join('');
 }
 function renderSidebar(){
   const allowed=new Set(topicsFor(activeCategory).map(s=>s.num));
   const grouped=sections.map((s,i)=>({s,i})).filter(({s})=>allowed.has(s.num));
-  const group=(label,kind,open=false)=>{const items=grouped.filter(({s})=>kind==='topics'?!s.kind:s.kind===kind);if(!items.length)return'';return `<details class="nav-group" ${open?'open':''}><summary>${esc(label)}<span>${items.length}</span></summary>${items.map(({s,i})=>`<button data-index="${i}">${String(s.num).padStart(2,'0')} &nbsp; ${esc(s.title)}</button>`).join('')}</details>`};
+  const group=(label,kind,open=false)=>{const items=grouped.filter(({s})=>kind==='topics'?!s.kind:s.kind===kind);if(!items.length)return'';return `<details class="nav-group" ${open?'open':''}><summary>${esc(label)}<span>${items.length}</span></summary>${items.map(({s,i})=>{const locked=!isUnlocked(s);return `<button data-index="${i}" ${locked?'disabled':''}>${locked?'🔒':String(s.num).padStart(2,'0')} &nbsp; ${esc(s.title)}</button>`}).join('')}</details>`};
   $('#topics').innerHTML='<button class="active" data-home>⌂ &nbsp; Overview</button>'+group('Study Topics','topics',true)+group('Commands','commands',true)+group('Tools','tools',true)+'<div class="nav-label">PRACTICAL TUTORIALS</div>'+tutorials.map((t,i)=>`<button data-tutorial="${i}">▸ &nbsp; ${esc(t.name)}</button>`).join('');
 }
 function filter(){
   const allowed=new Set(topicsFor(activeCategory).map(s=>s.num));
   const matches=sections.map((s,i)=>({s,i})).filter(({s})=>allowed.has(s.num)&&(s.title+' '+s.tools+' '+s.lines.join(' ')).toLowerCase().includes(query));
   $('#filterStatus').textContent=query?`${matches.length} result${matches.length!==1?'s':''}`:`${matches.length} topic${matches.length!==1?'s':''}`;
-  $('#topicGrid').innerHTML=matches.length?matches.map(({s,i})=>`<article class="topic-card ${state.done.includes(s.num)?'done':''}" data-index="${i}"><span class="num">${icons[i]||'•'} &nbsp; TOPIC ${String(s.num).padStart(2,'0')}</span><h3>${esc(s.title)}</h3><p>${esc(s.tools)}</p></article>`).join(''):'<div class="empty">No matching tools or commands. Try another search.</div>';
-  $$('.topic-card').forEach(x=>x.onclick=()=>openTopic(+x.dataset.index));
+  $('#topicGrid').innerHTML=matches.length?matches.map(({s,i})=>{const locked=!isUnlocked(s);return `<article class="topic-card ${state.done.includes(s.num)?'done':''} ${locked?'locked':''}" data-index="${i}" aria-disabled="${locked}"><span class="num">${locked?'🔒 LOCKED':`${icons[i]||'•'} &nbsp; TOPIC ${String(s.num).padStart(2,'0')}`}</span><h3>${esc(s.title)}</h3><p>${locked?'Complete the previous topic to unlock this lesson.':esc(s.tools)}</p></article>`}).join(''):'<div class="empty">No matching tools or commands. Try another search.</div>';
+  $$('.topic-card:not(.locked)').forEach(x=>x.onclick=()=>openTopic(+x.dataset.index));
   const labs=tutorials.map((t,i)=>({t,i})).filter(({t})=>(t.name+' '+t.use+' '+t.steps.flat().join(' ')).toLowerCase().includes(query));
   $('#tutorialGrid').innerHTML=labs.length?labs.map(({t,i})=>`<article class="topic-card lab-card" data-tutorial="${i}"><span class="num">PRACTICAL LAB · ${esc(t.level.toUpperCase())}</span><h3>${esc(t.name)}</h3><p>${esc(t.use)} · ${t.steps.length} guided steps</p></article>`).join(''):'<div class="empty">No matching tutorials.</div>';
   $$('.lab-card').forEach(x=>x.onclick=()=>openTutorial(+x.dataset.tutorial));
@@ -124,11 +126,11 @@ function filter(){
 function openTopic(i){
   readerMode='topic';
   $('#completeCheck').parentElement.style.display='';
-  current=Math.max(0,Math.min(i,sections.length-1)); const s=sections[current];
+  current=Math.max(0,Math.min(i,sections.length-1)); const s=sections[current];if(!isUnlocked(s)){toast('Complete the previous topic first');showHome();return}
   $('#home').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`TOPIC ${String(s.num).padStart(2,'0')} · ${s.tools}`;
   $('#readerTitle').textContent=s.title;$('#crumb').textContent=s.title;$('#completeCheck').checked=state.done.includes(s.num);
-  $('#readerBody').innerHTML=s.entries?formatReferenceEntries(s.entries):format(s.lines);$('#prevButton').disabled=current===0;$('#nextButton').textContent=current===sections.length-1?'Back to overview':'Next topic →';
+  $('#readerBody').innerHTML=s.entries?formatReferenceEntries(s.entries):format(s.lines);updateTopicNavigation();
   $$('#topics button').forEach(x=>x.classList.toggle('active',+x.dataset.index===current));
   $$('.copy').forEach(b=>b.onclick=()=>copyText(b.parentElement.dataset.command));
   window.scrollTo(0,0);document.body.classList.remove('menu-open');
@@ -167,19 +169,26 @@ function showHome(){
   $('#completeCheck').parentElement.style.display='';
   $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));filter();window.scrollTo(0,0);document.body.classList.remove('menu-open');
 }
-function toggleDone(){const n=sections[current].num;if($('#completeCheck').checked&&!state.done.includes(n))state.done.push(n);else if(!$('#completeCheck').checked)state.done=state.done.filter(x=>x!==n);localStorage.setItem('forensics-done',JSON.stringify(state.done));updateProgress()}
+function updateTopicNavigation(){
+  const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num),hasNext=position>=0&&position<list.length-1;
+  $('#prevButton').disabled=position<=0;
+  $('#nextButton').disabled=hasNext&&!state.done.includes(sections[current].num);
+  $('#nextButton').textContent=hasNext?'Next topic →':'Back to overview';
+}
+function toggleDone(){const n=sections[current].num;if($('#completeCheck').checked&&!state.done.includes(n))state.done.push(n);else if(!$('#completeCheck').checked)state.done=state.done.filter(x=>x!==n);localStorage.setItem('forensics-done',JSON.stringify(state.done));updateProgress();renderSidebar();filter();updateTopicNavigation()}
 function updateProgress(){const n=state.done.length,total=sections.length||30;$('#progressText').textContent=`${n} / ${total}`;$('#progressBar').style.width=`${n/total*100}%`}
 function bind(){
   $('#topics').onclick=e=>{const b=e.target.closest('button');if(!b)return;b.hasAttribute('data-home')?showHome():b.hasAttribute('data-tutorial')?openTutorial(+b.dataset.tutorial):openTopic(+b.dataset.index)};
   $('#search').oninput=e=>{query=e.target.value.toLowerCase().trim();showHome()};
   $('#categorySelect').onchange=e=>{activeCategory=e.target.value;renderSidebar();showHome()};
   document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('#search').focus()}if(e.key==='Escape'){$('#search').value='';query='';showHome()}});
-  $('#continueButton').onclick=()=>openTopic(sections.findIndex(s=>!state.done.includes(s.num))<0?0:sections.findIndex(s=>!state.done.includes(s.num)));
-  $('#randomButton').onclick=()=>openTopic(Math.floor(Math.random()*sections.length));$('#backButton').onclick=showHome;
-  $('#prevButton').onclick=()=>readerMode==='tutorial'?openTutorial(tutorialCurrent-1):openTopic(current-1);$('#nextButton').onclick=()=>readerMode==='tutorial'?(tutorialCurrent===tutorials.length-1?showHome():openTutorial(tutorialCurrent+1)):(current===sections.length-1?showHome():openTopic(current+1));
+  $('#continueButton').onclick=()=>{const list=topicSequence(),target=list.find(s=>!state.done.includes(s.num))||list[0];if(target)openTopic(sections.indexOf(target))};
+  $('#randomButton').onclick=()=>{const available=topicSequence().filter(isUnlocked);if(available.length){const target=available[Math.floor(Math.random()*available.length)];openTopic(sections.indexOf(target))}};$('#backButton').onclick=showHome;
+  $('#prevButton').onclick=()=>{if(readerMode==='tutorial')return openTutorial(tutorialCurrent-1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position>0&&openTopic(sections.indexOf(list[position-1]))};
+  $('#nextButton').onclick=()=>{if(readerMode==='tutorial')return tutorialCurrent===tutorials.length-1?showHome():openTutorial(tutorialCurrent+1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position===list.length-1?showHome():state.done.includes(sections[current].num)&&openTopic(sections.indexOf(list[position+1]))};
   $('#completeCheck').onchange=toggleDone;$('#menuButton').onclick=()=>document.body.classList.toggle('menu-open');
   $('#themeButton').onclick=()=>{document.body.classList.toggle('light');state.theme=document.body.classList.contains('light')?'light':'dark';localStorage.setItem('forensics-theme',state.theme)};
-  $('#resetProgress').onclick=()=>{if(confirm('Reset all study progress?')){state.done=[];localStorage.removeItem('forensics-done');updateProgress();filter()}};
+  $('#resetProgress').onclick=()=>{if(confirm('Reset all study progress?')){state.done=[];localStorage.removeItem('forensics-done');updateProgress();renderSidebar();filter()}};
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Command copied')}catch{toast('Select and copy the command manually')}}
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1300)}
