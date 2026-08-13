@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>CTF Command Hub</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=8">
+  <link rel="stylesheet" href="assets/css/styles.css?v=15">
   <link rel="stylesheet" href="assets/css/outputs.css?v=2">
   <link rel="stylesheet" href="assets/css/tutorials.css?v=2">
 </head>
@@ -19,10 +19,14 @@
       <span>Command category</span>
       <select id="categorySelect" aria-label="Choose a command category"></select>
     </label>
-    <label class="search-wrap">
-      <span>⌕</span>
-      <input id="search" type="search" placeholder="Search tools or commands…" autocomplete="off">
-      <kbd>/</kbd>
+    <label class="category-select content-select" for="contentSelect">
+      <span>Browse content</span>
+      <select id="contentSelect" aria-label="Choose topics, commands, tools, or tutorials">
+        <option value="topics">Study Topics</option>
+        <option value="commands">Commands</option>
+        <option value="tools">Tools</option>
+        <option value="tutorials">Practical Tutorials</option>
+      </select>
     </label>
     <nav id="topics" aria-label="Command topics"></nav>
   </aside>
@@ -31,7 +35,23 @@
     <header class="topbar">
       <button id="menuButton" class="icon-button" aria-label="Toggle topics">☰</button>
       <div class="crumb">FORENSIC REFERENCE / <b id="crumb">HOME</b></div>
-      <button id="themeButton" class="icon-button" aria-label="Toggle theme">☀</button>
+      <label class="search-wrap topbar-search">
+        <span>⌕</span>
+        <input id="search" type="search" placeholder="Search topics, tools or commands…" autocomplete="off">
+        <kbd>/</kbd>
+      </label>
+      <div class="topbar-actions">
+        <button id="wslGuideButton" class="topbar-guide" type="button"><span>⊞</span> WSL Setup</button>
+        <details id="toolsSetupMenu" class="setup-menu">
+          <summary><span>⚙</span> Tools Setup</summary>
+          <div class="setup-dropdown">
+            <button type="button" data-tools-platform="linux"><b>Linux</b><small>Native Linux packages</small></button>
+            <button type="button" data-tools-platform="windows"><b>Windows</b><small>Native apps and GUI tools</small></button>
+            <button type="button" data-tools-platform="wsl"><b>WSL</b><small>Terminal tools inside Windows</small></button>
+          </div>
+        </details>
+        <button id="themeButton" class="icon-button" aria-label="Toggle theme">☀</button>
+      </div>
     </header>
 
     <section id="home" class="view active">
@@ -66,6 +86,34 @@
         <button id="nextButton" class="primary">Next topic →</button>
       </div>
     </section>
+    <section id="wslGuide" class="view wsl-guide">
+      <button id="wslBackButton" class="back">← Command hub</button>
+      <div class="wsl-hero"><div><p class="eyebrow">WINDOWS 10 &amp; 11 · BEGINNER SETUP</p><h1>Install Linux with WSL</h1><p>Run Ubuntu and common CTF commands directly inside Windows—without dual booting or managing a traditional virtual machine.</p></div><span class="wsl-badge">About 10 minutes</span></div>
+      <div class="video-frame"><iframe src="https://www.youtube-nocookie.com/embed/2R3xP9o5FxA" title="How to install and configure WSL on Windows" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
+      <p class="video-note">The embedded video requires an internet connection. The written guide below remains available with the rest of the command hub.</p>
+      <div class="wsl-steps">
+        <article class="wsl-step"><span>01</span><div><h2>Enable WSL</h2><p>Open Start, search for <b>Turn Windows features on or off</b>, enable <b>Windows Subsystem for Linux</b>, select OK, and restart Windows when prompted.</p><p class="wsl-tip">On current Windows versions, you can instead open PowerShell as Administrator and install WSL and Ubuntu together.</p><div class="command" data-command="wsl --install -d Ubuntu">wsl --install -d Ubuntu<button class="copy" title="Copy command only">Copy</button></div></div></article>
+        <article class="wsl-step"><span>02</span><div><h2>Install Ubuntu</h2><p>If you enabled the feature manually, install Ubuntu from the Microsoft Store. You can also list available distributions and install Ubuntu from PowerShell or Command Prompt.</p><div class="command" data-command="wsl --list --online">wsl --list --online<button class="copy" title="Copy command only">Copy</button></div><div class="command" data-command="wsl --install -d Ubuntu">wsl --install -d Ubuntu<button class="copy" title="Copy command only">Copy</button></div></div></article>
+        <article class="wsl-step"><span>03</span><div><h2>Create your Linux account</h2><p>Launch Ubuntu from the Start menu. The first launch finishes setup and asks for a Unix username and password. Password characters are intentionally not displayed while you type.</p></div></article>
+        <article class="wsl-step"><span>04</span><div><h2>Open and leave Linux</h2><p>Enter Linux from PowerShell or Command Prompt with <code>wsl</code>. Use <code>exit</code> to close the current Linux shell.</p><div class="command" data-command="wsl">wsl<button class="copy" title="Copy command only">Copy</button></div><div class="command" data-command="exit">exit<button class="copy" title="Copy command only">Copy</button></div></div></article>
+        <article class="wsl-step"><span>05</span><div><h2>Update Ubuntu for CTF use</h2><p>Inside Ubuntu, refresh packages and install a useful set of basic CTF utilities.</p><div class="command" data-command="sudo apt update &amp;&amp; sudo apt upgrade -y">sudo apt update &amp;&amp; sudo apt upgrade -y<button class="copy" title="Copy command only">Copy</button></div><div class="command" data-command="sudo apt install -y file binutils unzip zip p7zip-full curl wget git openssl python3 python3-pip netcat-openbsd nmap exiftool binwalk">sudo apt install -y file binutils unzip zip p7zip-full curl wget git openssl python3 python3-pip netcat-openbsd nmap exiftool binwalk<button class="copy" title="Copy command only">Copy</button></div></div></article>
+        <article class="wsl-step distro-step"><span>05A</span><div><h2>Package commands by Linux distribution</h2><p>WSL supports more than Ubuntu. First identify the installed distribution, then use its package manager. Replace <code>&lt;package&gt;</code> with the tool you need; exact package names may differ between distributions.</p><div class="command" data-command="cat /etc/os-release">cat /etc/os-release<button class="copy" title="Copy command only">Copy</button></div><div class="distro-grid">
+          <section><h3>Ubuntu / Debian / Kali</h3><code>apt</code><p><b>Update:</b></p><div class="command" data-command="sudo apt update &amp;&amp; sudo apt upgrade -y">sudo apt update &amp;&amp; sudo apt upgrade -y<button class="copy" title="Copy command only">Copy</button></div><p><b>Install:</b></p><div class="command" data-command="sudo apt install &lt;package&gt;">sudo apt install &lt;package&gt;<button class="copy" title="Copy command only">Copy</button></div></section>
+          <section><h3>Fedora</h3><code>dnf</code><p><b>Update:</b></p><div class="command" data-command="sudo dnf upgrade --refresh -y">sudo dnf upgrade --refresh -y<button class="copy" title="Copy command only">Copy</button></div><p><b>Install:</b></p><div class="command" data-command="sudo dnf install &lt;package&gt;">sudo dnf install &lt;package&gt;<button class="copy" title="Copy command only">Copy</button></div></section>
+          <section><h3>Arch Linux</h3><code>pacman</code><p><b>Update:</b></p><div class="command" data-command="sudo pacman -Syu">sudo pacman -Syu<button class="copy" title="Copy command only">Copy</button></div><p><b>Install:</b></p><div class="command" data-command="sudo pacman -S &lt;package&gt;">sudo pacman -S &lt;package&gt;<button class="copy" title="Copy command only">Copy</button></div></section>
+          <section><h3>openSUSE</h3><code>zypper</code><p><b>Update:</b></p><div class="command" data-command="sudo zypper refresh &amp;&amp; sudo zypper update">sudo zypper refresh &amp;&amp; sudo zypper update<button class="copy" title="Copy command only">Copy</button></div><p><b>Install:</b></p><div class="command" data-command="sudo zypper install &lt;package&gt;">sudo zypper install &lt;package&gt;<button class="copy" title="Copy command only">Copy</button></div></section>
+          <section><h3>Alpine Linux</h3><code>apk</code><p><b>Update:</b></p><div class="command" data-command="sudo apk update &amp;&amp; sudo apk upgrade">sudo apk update &amp;&amp; sudo apk upgrade<button class="copy" title="Copy command only">Copy</button></div><p><b>Install:</b></p><div class="command" data-command="sudo apk add &lt;package&gt;">sudo apk add &lt;package&gt;<button class="copy" title="Copy command only">Copy</button></div></section>
+        </div><div class="wsl-tip"><b>Important:</b> Do not paste an <code>apt</code> command into Fedora, Arch, openSUSE, or Alpine. Search the distribution repository when a package cannot be found—for example, <code>dnf search &lt;name&gt;</code> or <code>pacman -Ss &lt;name&gt;</code>.</div></div></article>
+        <article class="wsl-step"><span>06</span><div><h2>Access Windows files</h2><p>Windows drives appear below <code>/mnt</code>. Your C: drive is available at <code>/mnt/c</code>. Quote paths that contain spaces.</p><div class="command" data-command="cd /mnt/c/Users">cd /mnt/c/Users<button class="copy" title="Copy command only">Copy</button></div><div class="command" data-command="ls">ls<button class="copy" title="Copy command only">Copy</button></div><div class="command" data-command="echo 'CTF ready' &gt; ctf-ready.txt">echo 'CTF ready' &gt; ctf-ready.txt<button class="copy" title="Copy command only">Copy</button></div></div></article>
+        <article class="wsl-step"><span>07</span><div><h2>Release WSL resources</h2><p>Closing a terminal ends that shell, but WSL may continue running. From PowerShell or Command Prompt, stop all distributions and release their RAM:</p><div class="command" data-command="wsl --shutdown">wsl --shutdown<button class="copy" title="Copy command only">Copy</button></div></div></article>
+      </div>
+      <div class="wsl-ready"><span>✓</span><div><h2>You are CTF-ready</h2><p>Open Ubuntu, move to your challenge folder under <code>/mnt/c</code>, and use the searchable commands in this hub.</p></div></div>
+    </section>
+
+    <section id="toolsGuide" class="view tools-guide">
+      <button id="toolsBackButton" class="back">← Command hub</button>
+      <div id="toolsGuideBody"></div>
+    </section>
   </main>
 
   <nav class="mobile-nav" aria-label="Mobile navigation">
@@ -79,8 +127,8 @@
   <div id="toast" role="status"></div>
   <script src="assets/js/outputs.js?v=1"></script>
   <script src="assets/js/tutorials.js?v=1"></script>
-  <script src="data/curriculum.js?v=1"></script>
+  <script src="data/curriculum.js?v=2"></script>
   <script src="data/reference-guides.js?v=1"></script>
-  <script src="assets/js/app.js?v=22"></script>
+  <script src="assets/js/app.js?v=28"></script>
 </body>
 </html>

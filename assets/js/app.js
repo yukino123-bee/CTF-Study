@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let sections=[], commands=[], current=0, tutorialCurrent=0, readerMode='topic', query='', activeCategory='All Commands';
+let sections=[], commands=[], current=0, tutorialCurrent=0, readerMode='topic', query='', activeCategory='All Commands', sidebarContent='topics';
 const icons=['🗂','⌕','01','ⓘ','▣','📦','◆','◈','▧','♫','⌁','◉','▤','↺','▦','PDF','DOC','⊞','▥','▣','◎','✉','#','🔐','↔','QR','</>','▯','◷','✦'];
 const categories=['All Commands','Forensics','General Skills','Cryptography','Web Exploitation','Networking','Reverse Engineering','Binary Exploitation'];
 const categoryTopics={
@@ -15,6 +15,25 @@ const tutorialCategories={
   Wireshark:'Networking',TShark:'Networking',Ghidra:'Reverse Engineering',
   'John the Ripper':'Cryptography',Hashcat:'Cryptography',CyberChef:'Cryptography',
   '7-Zip':'General Skills'
+};
+const toolSetupGuides={
+  linux:{label:'Linux',subtitle:'Native Linux workstation',intro:'Install terminal-first CTF utilities from your distribution package manager. These commands target Ubuntu, Debian, and Kali Linux.',groups:[
+    {title:'Core command-line toolkit',description:'File inspection, archives, text processing, networking, metadata, and Python.',command:'sudo apt update && sudo apt install -y file binutils ripgrep unzip zip p7zip-full tar gzip bzip2 xz-utils curl wget git openssl python3 python3-pip netcat-openbsd nmap exiftool binwalk'},
+    {title:'Password and steganography tools',description:'Common utilities for authorized CTF challenges.',command:'sudo apt install -y john hashcat steghide pngcheck'},
+    {title:'Optional desktop capture tool',description:'Install Wireshark on a full Linux desktop. On headless systems or WSL, keep the GUI on your host computer.',command:'sudo apt install -y wireshark'}
+  ],note:'Package names can differ outside Debian-based distributions. Use dnf on Fedora or pacman on Arch and confirm each package name.'},
+  windows:{label:'Windows',subtitle:'Native Windows applications',intro:'Install graphical tools and Windows-native utilities on the Windows host. This is the right location for Burp Suite, Wireshark/Npcap, Ghidra, editors, and archive applications.',groups:[
+    {title:'Core applications with WinGet',description:'Terminal, PowerShell, Git, Python, VS Code, 7-Zip, Nmap, and Wireshark. Run in PowerShell.',command:'winget install --id Microsoft.WindowsTerminal -e; winget install --id Microsoft.PowerShell -e; winget install --id Git.Git -e; winget install --id Python.Python.3.13 -e; winget install --id Microsoft.VisualStudioCode -e; winget install --id 7zip.7zip -e; winget install --id Insecure.Nmap -e; winget install --id WiresharkFoundation.Wireshark -e'},
+    {title:'Burp Suite Community Edition',description:'Download the native Windows installer from PortSwigger, run it, then choose a temporary project and the default configuration.',link:'https://portswigger.net/burp/communitydownload',linkLabel:'Download Burp Suite'},
+    {title:'Ghidra',description:'Download the official release, extract it to a tools folder, and launch ghidraRun.bat. A supported Java runtime is required.',link:'https://github.com/NationalSecurityAgency/ghidra/releases',linkLabel:'Download Ghidra'},
+    {title:'Verify the terminal tools',description:'Open a new PowerShell terminal after installation and verify the commands.',command:'git --version; py --version; 7z; nmap --version'}
+  ],note:'Install Wireshark with Npcap when prompted. Run unknown challenge executables only in Windows Sandbox or a disposable virtual machine.'},
+  wsl:{label:'WSL',subtitle:'Linux terminal tools on Windows',intro:'Install Linux command-line tools inside Ubuntu or Kali WSL. Keep heavy GUI applications such as Burp Suite and Wireshark installed natively on Windows.',groups:[
+    {title:'Update WSL Linux',description:'Run this inside the Ubuntu or Kali terminal.',command:'sudo apt update && sudo apt upgrade -y'},
+    {title:'Install the CTF terminal toolkit',description:'Covers the majority of commands searchable in this hub.',command:'sudo apt install -y file binutils ripgrep unzip zip p7zip-full tar gzip bzip2 xz-utils curl wget git openssl python3 python3-pip netcat-openbsd nmap exiftool binwalk john hashcat steghide pngcheck'},
+    {title:'Use Windows GUI tools alongside WSL',description:'Install Burp Suite, Wireshark, Ghidra, VS Code, and 7-Zip in Windows. Access Windows challenge files from WSL through /mnt/c.',command:'cd /mnt/c/Users'},
+    {title:'Confirm the setup',description:'Check several representative tools inside WSL.',command:'file --version && python3 --version && nmap --version && unzip -v'}
+  ],note:'WSL is suitable for ordinary CTF commands, but native Windows Wireshark/Npcap is better for packet capture. Wi-Fi monitor mode and direct hardware access remain limited.'}
 };
 const state={theme:localStorage.getItem('forensics-theme')||'dark'};
 const webExploitationTopics=[
@@ -87,7 +106,7 @@ function parse(text){
 function addCurriculumTopics(){
   let num=Math.max(...sections.map(s=>s.num))+1;
   Object.entries(curriculumBlueprint).forEach(([category,topics])=>topics.forEach(([title,summary,learn,practice,tools])=>{
-    const topic={i:-1,num:num++,title:title.toUpperCase(),tools,lines:[`${title} — ${summary}`,`Learn: ${learn}`,`Practice: ${practice}`,`Recommended tools: ${tools}`]};
+    const topic={i:-1,num:num++,category,title:title.toUpperCase(),tools,lesson:{title,summary,learn,practice,tools},lines:[`${title} — ${summary}`,`Learn: ${learn}`,`Practice: ${practice}`,`Recommended tools: ${tools}`]};
     sections.push(topic);(categoryTopics[category]??=[]).push(topic.num);
   }));
 }
@@ -143,7 +162,8 @@ function renderSidebar(){
   const grouped=sections.map((s,i)=>({s,i})).filter(({s})=>allowed.has(s.num));
   const group=(label,kind,open=false)=>{const items=grouped.filter(({s})=>kind==='topics'?!s.kind:s.kind===kind);if(!items.length)return'';return `<details class="nav-group" ${open?'open':''}><summary>${esc(label)}<span>${items.length}</span></summary>${items.map(({s,i})=>`<button data-index="${i}">${String(s.num).padStart(2,'0')} &nbsp; ${esc(s.title)}</button>`).join('')}</details>`};
   const visibleTutorials=tutorials.map((t,i)=>({t,i})).filter(({t})=>activeCategory==='All Commands'||tutorialCategory(t)===activeCategory);
-  $('#topics').innerHTML='<button class="active" data-home>⌂ &nbsp; Overview</button>'+group('Study Topics','topics',true)+group('Commands','commands',true)+group('Tools','tools',true)+(visibleTutorials.length?'<div class="nav-label">PRACTICAL TUTORIALS</div>'+visibleTutorials.map(({t,i})=>`<button data-tutorial="${i}">▸ &nbsp; ${esc(t.name)}</button>`).join(''):'');
+  const content=sidebarContent==='topics'?group('Study Topics','topics',true):sidebarContent==='commands'?group('Commands','commands',true):sidebarContent==='tools'?group('Tools','tools',true):visibleTutorials.map(({t,i})=>`<button data-tutorial="${i}">▸ &nbsp; ${esc(t.name)}</button>`).join('');
+  $('#topics').innerHTML='<button class="active" data-home>⌂ &nbsp; Overview</button>'+(content||'<div class="sidebar-empty">No content in this category.</div>');
 }
 function searchable(value){return String(value).toLowerCase().replace(/[^a-z0-9+./_-]+/g,' ').trim()}
 function exactSearchMatch(value){
@@ -152,12 +172,23 @@ function exactSearchMatch(value){
   const haystack=` ${searchable(value)} `;
   return needle.includes(' ')?haystack.includes(` ${needle} `):haystack.split(' ').includes(needle);
 }
+function groupCommandMatches(matches){
+  const groups=new Map();
+  matches.forEach(command=>{
+    const key=`${command.category}|${searchable(command.name)}`;
+    if(!groups.has(key))groups.set(key,{...command,sourceIndex:commands.indexOf(command),variants:[]});
+    const group=groups.get(key);
+    if(!group.variants.some(item=>item.command===command.command))group.variants.push(command);
+  });
+  return [...groups.values()];
+}
 function filter(){
   const matches=commands.filter(c=>(activeCategory==='All Commands'||c.category===activeCategory)&&exactSearchMatch(`${c.name} ${c.command}`));
+  const commandGroups=query?groupCommandMatches(matches):matches.map(command=>({...command,sourceIndex:commands.indexOf(command),variants:[command]}));
   const topicMatches=query?sections.map((s,i)=>({s,i,category:categoryFor(s)})).filter(({s,category})=>(activeCategory==='All Commands'||category===activeCategory)&&exactSearchMatch(s.title)):[];
-  $('#filterStatus').textContent=query?`${topicMatches.length} topic${topicMatches.length!==1?'s':''} · ${matches.length} command${matches.length!==1?'s':''}`:`${matches.length} command${matches.length!==1?'s':''}`;
+  $('#filterStatus').textContent=query?`${topicMatches.length} topic${topicMatches.length!==1?'s':''} · ${commandGroups.length} tool${commandGroups.length!==1?'s':''} · ${matches.length} command${matches.length!==1?'s':''}`:`${matches.length} command${matches.length!==1?'s':''}`;
   const topicHtml=topicMatches.map(({s,i,category})=>`<article class="topic-card topic-search-result search-match" data-topic-index="${i}"><span class="num">${esc(category.toUpperCase())} · TOPIC ${String(s.num).padStart(2,'0')}</span><h3>${esc(s.title)}</h3><p>${esc(s.tools)}</p><span class="topic-open-label">Open topic →</span></article>`).join('');
-  const commandHtml=matches.map(c=>`<article class="command-result ${query?'search-match':''}" data-command-index="${commands.indexOf(c)}"><div class="command-result-head"><div><span class="num">${esc(c.category.toUpperCase())}</span><h3>${esc(c.name)}</h3></div><button class="secondary open-reference" type="button">Full reference →</button></div><p><b>Description:</b> ${esc(c.description)}</p><p class="command-use"><b>Use it to:</b> ${esc(c.use)}</p><p class="command-label"><b>Command:</b></p><div class="command" data-command="${attr(c.command)}">${esc(c.command)}<button class="copy" title="Copy command only">Copy</button></div>${c.output?`<div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(c.output)}</pre></div>`:''}</article>`).join('');
+  const commandHtml=commandGroups.map(c=>`<article class="command-result ${query?'search-match':''}" data-command-index="${c.sourceIndex}"><div class="command-result-head"><div><span class="num">${esc(c.category.toUpperCase())}</span><h3>${esc(c.name)}</h3></div><button class="secondary open-reference" type="button">Full reference →</button></div><p><b>Description:</b> ${esc(c.description)}</p><p class="command-use"><b>Use it to:</b> ${esc(c.use)}</p><p class="command-label"><b>${c.variants.length===1?'Command':'Command variants'}:</b></p><div class="command-variants">${c.variants.map((variant,index)=>`<div class="command-variant"><span>${c.variants.length>1?`${index+1}. `:''}${esc(variant.use)}</span><div class="command" data-command="${attr(variant.command)}">${esc(variant.command)}<button class="copy" title="Copy command only">Copy</button></div>${variant.output?`<details class="variant-output"><summary>View sample output</summary><div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(variant.output)}</pre></div></details>`:''}</div>`).join('')}</div></article>`).join('');
   $('#topicGrid').innerHTML=topicHtml+commandHtml||'<div class="empty">No matching topics or commands. Try another name, task, tool, or keyword.</div>';
   $$('.topic-search-result').forEach(card=>card.onclick=()=>openTopic(+card.dataset.topicIndex));
   $$('.command-result .copy').forEach(b=>b.onclick=e=>{e.stopPropagation();copyText(b.parentElement.dataset.command)});
@@ -171,17 +202,48 @@ function filter(){
 function openTopic(i){
   readerMode='topic';
   current=Math.max(0,Math.min(i,sections.length-1)); const s=sections[current];
-  $('#home').classList.remove('active');$('#reader').classList.add('active');
+  $('#home').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`TOPIC ${String(s.num).padStart(2,'0')} · ${s.tools}`;
   $('#readerTitle').textContent=s.title;$('#crumb').textContent=s.title;
-  $('#readerBody').innerHTML=s.entries?formatReferenceEntries(s.entries):format(s.lines);updateTopicNavigation();
+  $('#readerBody').innerHTML=s.lesson?formatLesson(s):s.entries?formatReferenceEntries(s.entries):format(s.lines);updateTopicNavigation();
   $$('#topics button').forEach(x=>x.classList.toggle('active',+x.dataset.index===current));
   $$('.copy').forEach(b=>b.onclick=()=>copyText(b.parentElement.dataset.command));
   window.scrollTo(0,0);document.body.classList.remove('menu-open');
 }
+function lessonCommands(topic){
+  const wanted=topic.tools.split(',').map(searchable).filter(Boolean);
+  const found=commands.filter(command=>wanted.some(tool=>exactToolMatch(command.name,tool))).filter((command,index,list)=>list.findIndex(item=>item.command===command.command)===index);
+  return found.slice(0,6);
+}
+function exactToolMatch(name,tool){const a=searchable(name),b=searchable(tool);return a===b||a.split(' ').includes(b)||b.split(' ').includes(a)}
+function lessonInstall(topic){
+  const packages={pwd:'coreutils',ls:'coreutils',cd:'bash',find:'findutils',stat:'coreutils',grep:'grep',rg:'ripgrep',locate:'plocate',cut:'coreutils',sort:'coreutils',uniq:'coreutils',tr:'coreutils',awk:'gawk',sed:'sed',base64:'coreutils',xxd:'xxd',file:'file',unzip:'unzip','7z':'p7zip-full',tar:'tar',gzip:'gzip',python3:'python3',python:'python3',requests:'python3-requests',bash:'bash',shellcheck:'shellcheck',jq:'jq',xmllint:'libxml2-utils',git:'git',ssh:'openssh-client',nc:'netcat-openbsd',curl:'curl',wget:'wget',sha256sum:'coreutils',tmux:'tmux',openssl:'openssl',nmap:'nmap',exiftool:'libimage-exiftool-perl',binwalk:'binwalk',john:'john',hashcat:'hashcat',gdb:'gdb',objdump:'binutils',readelf:'binutils',strings:'binutils',strace:'strace',ltrace:'ltrace',gcc:'gcc',nasm:'nasm',ffuf:'ffuf',gobuster:'gobuster',dirsearch:'dirsearch',sqlmap:'sqlmap'};
+  const names=topic.tools.split(',').map(searchable),selected=[...new Set(names.map(name=>packages[name]).filter(Boolean))];
+  return selected.length?`sudo apt update && sudo apt install -y ${selected.join(' ')}`:'';
+}
+function formatLesson(topic){
+  const lesson=topic.lesson,examples=lessonCommands(topic),install=lessonInstall(topic);
+  const commandBlock=command=>`<div class="lesson-command"><h3>${esc(command.name)}</h3><p><b>Description:</b> ${esc(command.description)}</p><p><b>Use:</b> ${esc(command.use)}</p><div class="command" data-command="${attr(command.command)}">${esc(command.command)}<button class="copy" title="Copy command only">Copy</button></div>${command.output?`<div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(command.output)}</pre></div>`:''}</div>`;
+  return `<div class="lesson-banner"><span>GUIDED TUTORIAL</span><h2>${esc(lesson.summary)}</h2><p>Designed for Ubuntu WSL and Debian-based Linux. Commands also work on Kali unless a package name differs.</p></div><section class="lesson-section"><div class="lesson-section-title"><span>01</span><div><h2>Learning objectives</h2><p>Understand the concepts before running tools.</p></div></div><ul class="lesson-objectives">${lesson.learn.split(',').map(item=>`<li>${esc(item.trim())}</li>`).join('')}</ul></section><section class="lesson-section"><div class="lesson-section-title"><span>02</span><div><h2>Prepare your environment</h2><p>Create an isolated workspace and preserve the original challenge files.</p></div></div><div class="command" data-command="mkdir -p ~/ctf/${attr(lesson.title.toLowerCase().replace(/[^a-z0-9]+/g,'-'))} &amp;&amp; cd ~/ctf/${attr(lesson.title.toLowerCase().replace(/[^a-z0-9]+/g,'-'))}">mkdir -p ~/ctf/${esc(lesson.title.toLowerCase().replace(/[^a-z0-9]+/g,'-'))} &amp;&amp; cd ~/ctf/${esc(lesson.title.toLowerCase().replace(/[^a-z0-9]+/g,'-'))}<button class="copy" title="Copy command only">Copy</button></div>${install?`<p class="command-label"><b>Install terminal tools:</b></p><div class="command" data-command="${attr(install)}">${esc(install)}<button class="copy" title="Copy command only">Copy</button></div>`:''}<div class="wsl-tip"><b>WSL users:</b> Windows files are under <code>/mnt/c</code>. Prefer working in <code>~/ctf</code> for better Linux tool performance, and copy challenge files into it first. Install GUI tools such as Burp Suite and Wireshark on Windows through Tools Setup.</div></section><section class="lesson-section"><div class="lesson-section-title"><span>03</span><div><h2>Commands and workflow</h2><p>Run these examples against copied files or authorized CTF targets. Replace every placeholder with your real value.</p></div></div>${examples.length?examples.map(commandBlock).join(''):`<div class="reference-notice">This lesson is concept-led. Use the recommended tools—${esc(lesson.tools)}—and consult their matching command references in the hub before beginning the exercise.</div>`}</section>${topic.category==='Web Exploitation'?formatWebInspectionGuide():''}<section class="lesson-section"><div class="lesson-section-title"><span>04</span><div><h2>Practice challenge</h2><p>Apply the workflow rather than memorizing a single command.</p></div></div><div class="practice-card"><b>Your task</b><p>${esc(lesson.practice)}</p><ol><li>Record the input files, target, and initial observations.</li><li>Choose the least invasive relevant command and save its output.</li><li>Validate the result with a second method or tool.</li><li>Write the exact commands and explain what each result means.</li></ol></div></section><section class="lesson-section"><div class="lesson-section-title"><span>05</span><div><h2>Completion checklist</h2><p>The tutorial is complete when you can reproduce and explain the result.</p></div></div><ul class="lesson-checklist"><li>□ I can explain: ${esc(lesson.learn)}.</li><li>□ I used only copied files or an authorized CTF target.</li><li>□ I replaced placeholders and understood every option.</li><li>□ I validated the result and recorded reproducible commands.</li><li>□ I can describe when the recommended tools are appropriate.</li></ul></section>`;
+}
+function formatWebInspectionGuide(){
+  const steps=[
+    ['Confirm scope','Write down the exact CTF hostname, allowed accounts and prohibited actions. Do not scan neighboring hosts or third-party services.','printf "Target: https://lab.example\nScope: lab.example only\n" > notes.txt'],
+    ['Inspect the browser','Open DevTools. Check Elements and page source for comments; Sources for JavaScript and source maps; Application for cookies, local/session storage; and Network for XHR/fetch requests, parameters and responses.','Browser → F12 → Elements, Sources, Application, Network'],
+    ['Save the initial response','Preserve headers and body so later findings are reproducible. Use the real authorized lab URL.','curl -sS -D headers.txt https://lab.example/ -o index.html'],
+    ['Search downloaded source','Look for common flag shapes, comments, secrets, routes, API names and suspicious filenames. Adjust the flag prefix to the event format.','rg -ni "flag\\{|ctf\\{|secret|token|api|admin|backup|sourceMappingURL" index.html *.js'],
+    ['Collect referenced JavaScript','List script URLs in DevTools or source, download only same-scope resources, then inspect readable strings and endpoints.',`rg -o 'src="[^"]+\\.js' index.html`],
+    ['Inspect requests and responses','In Network, reload the page, filter Fetch/XHR, open each relevant request, and review URL, method, parameters, cookies, response and initiator. Use Copy as cURL for a reproducible baseline.','DevTools → Network → Fetch/XHR → request → Copy as cURL'],
+    ['Replay safely with Burp','Proxy the authorized lab, send one request to Repeater, change one value at a time, and compare status, length, headers and body. Keep automatic active scanning off unless the rules permit it.','Burp → Proxy → HTTP history → Send to Repeater'],
+    ['Discover content carefully','Use a small approved wordlist, conservative rate and explicit match/filter settings. Manually verify results; redirects and custom 404 pages cause false positives.','ffuf -w words.txt -u https://lab.example/FUZZ -rate 10 -fc 404'],
+    ['Validate the flag','A candidate is not final until it matches the event format and came from the authorized challenge. Record its source and reproduce the minimal steps.','rg -o "[A-Za-z0-9_]+\\{[^}]+\\}" index.html *.js notes.txt'],
+    ['Write the solve log','Record target, timestamp, observation, request or command, meaningful response difference and final flag location. Remove session tokens before sharing notes.','printf "Finding:\nCommand/request:\nEvidence:\nFlag location:\n" >> notes.txt']
+  ];
+  return `<section class="lesson-section web-inspection-guide"><div class="lesson-section-title"><span>WEB</span><div><h2>Tool usage and flag-inspection workflow</h2><p>A repeatable process for authorized web CTF challenges.</p></div></div><div class="web-workflow">${steps.map(([title,description,command],index)=>`<article><div class="web-workflow-number">${String(index+1).padStart(2,'0')}</div><div><h3>${esc(title)}</h3><p>${esc(description)}</p><div class="command" data-command="${attr(command)}">${esc(command)}<button class="copy" title="Copy command or UI path">Copy</button></div></div></article>`).join('')}</div><div class="reference-notice"><b>Where flags commonly appear:</b> HTML comments, JavaScript strings, source maps, JSON/API responses, hidden but in-scope routes, cookies or storage in intentionally vulnerable labs, response headers, downloaded files, and server responses revealed after solving the intended weakness. Never treat unrelated credentials or third-party data as a flag.</div></section>`;
+}
 function openTutorial(i){
   readerMode='tutorial';tutorialCurrent=Math.max(0,Math.min(i,tutorials.length-1));const t=tutorials[tutorialCurrent];
-  $('#home').classList.remove('active');$('#reader').classList.add('active');
+  $('#home').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`HANDS-ON LAB ${String(tutorialCurrent+1).padStart(2,'0')} · ${t.level.toUpperCase()}`;
   $('#readerTitle').textContent=t.name;$('#crumb').textContent=`TUTORIAL / ${t.name}`;
   $('#readerBody').innerHTML=`<div class="tutorial-intro"><b>Used for</b><p>${esc(t.use)}</p><b>Before you begin</b><p>${esc(t.setup)}</p><div class="output-warning">Outputs below are realistic training examples. Your filenames, hashes, timestamps, counts, offsets, addresses, and versions will differ.</div></div>`+t.steps.map((s,n)=>`<article class="tutorial-step"><div class="step-number">${n+1}</div><div><h3>${esc(s[0])}</h3><p class="interpret"><b>Description:</b> ${esc(s[3])}</p><p class="command-label"><b>Command:</b></p><div class="command" data-command="${attr(s[1])}">${esc(s[1])}<button class="copy" title="Copy command only">Copy</button></div><div class="sample-output"><span>ACTUAL-STYLE SAMPLE OUTPUT</span><pre>${esc(s[2])}</pre></div></div></article>`).join('');
@@ -209,8 +271,20 @@ function formatReferenceEntries(entries){
   }).join('');
 }
 function showHome(){
-  $('#reader').classList.remove('active');$('#home').classList.add('active');$('#crumb').textContent='HOME';
+  $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');$('#crumb').textContent='HOME';
   $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));filter();window.scrollTo(0,0);document.body.classList.remove('menu-open');
+}
+function showWslGuide(){
+  closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#wslGuide').classList.add('active');$('#crumb').textContent='WSL SETUP';
+  $$('#wslGuide .copy').forEach(button=>button.onclick=()=>copyText(button.parentElement.dataset.command));
+  window.scrollTo(0,0);setMobileNav('home');
+}
+function showToolsGuide(platform){
+  const guide=toolSetupGuides[platform];if(!guide)return;
+  closeMobilePanels();$('#toolsSetupMenu').open=false;$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.add('active');$('#crumb').textContent=`TOOLS / ${guide.label.toUpperCase()}`;
+  $('#toolsGuideBody').innerHTML=`<div class="tools-guide-hero"><p class="eyebrow">TOOLS SETUP · ${esc(guide.label.toUpperCase())}</p><h1>${esc(guide.label)} CTF setup</h1><h2>${esc(guide.subtitle)}</h2><p>${esc(guide.intro)}</p></div><div class="platform-tabs">${Object.entries(toolSetupGuides).map(([key,item])=>`<button class="${key===platform?'active':''}" data-guide-tab="${key}">${esc(item.label)}</button>`).join('')}</div><div class="tool-setup-grid">${guide.groups.map((group,index)=>`<article class="tool-setup-card"><span class="num">SETUP ${String(index+1).padStart(2,'0')}</span><h2>${esc(group.title)}</h2><p>${esc(group.description)}</p>${group.command?`<div class="command" data-command="${attr(group.command)}">${esc(group.command)}<button class="copy" title="Copy command only">Copy</button></div>`:''}${group.link?`<a class="primary setup-link" href="${attr(group.link)}" target="_blank" rel="noopener noreferrer">${esc(group.linkLabel)} ↗</a>`:''}</article>`).join('')}</div><div class="reference-notice"><b>Important:</b> ${esc(guide.note)}</div>`;
+  $$('#toolsGuide .copy').forEach(button=>button.onclick=()=>copyText(button.parentElement.dataset.command));
+  $$('#toolsGuide [data-guide-tab]').forEach(button=>button.onclick=()=>showToolsGuide(button.dataset.guideTab));window.scrollTo(0,0);setMobileNav('home');
 }
 function closeMobilePanels(){document.body.classList.remove('menu-open','mobile-search-open')}
 function setMobileNav(action){$$('.mobile-nav-item').forEach(item=>item.classList.toggle('active',item.dataset.mobileAction===action))}
@@ -224,7 +298,7 @@ function bind(){
   $('#topics').onclick=e=>{const b=e.target.closest('button');if(!b)return;b.hasAttribute('data-home')?showHome():b.hasAttribute('data-tutorial')?openTutorial(+b.dataset.tutorial):openTopic(+b.dataset.index)};
   $('#search').oninput=e=>{
     query=e.target.value.toLowerCase().trim();
-    $('#reader').classList.remove('active');$('#home').classList.add('active');$('#crumb').textContent='HOME';
+    $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');$('#crumb').textContent='HOME';
     $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));
     filter();
     if(query)requestAnimationFrame(()=>$('#topicGrid').scrollIntoView({block:'start'}));
@@ -232,8 +306,11 @@ function bind(){
   };
   $('#search').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();closeMobilePanels();setMobileNav('search');$('#search').blur();requestAnimationFrame(()=>$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'}))}};
   $('#categorySelect').onchange=e=>{activeCategory=e.target.value;renderSidebar();showHome();closeMobilePanels();setMobileNav('home')};
+  $('#contentSelect').onchange=e=>{sidebarContent=e.target.value;renderSidebar()};
   document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('#search').focus()}if(e.key==='Escape'){$('#search').value='';query='';showHome()}});
   $('#browseCommandsButton').onclick=()=>{$('#search').focus();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})};
+  $('#wslGuideButton').onclick=showWslGuide;$('#wslBackButton').onclick=showHome;$('#toolsBackButton').onclick=showHome;
+  $('#toolsSetupMenu').onclick=e=>{const button=e.target.closest('[data-tools-platform]');if(button)showToolsGuide(button.dataset.toolsPlatform)};
   $('#randomButton').onclick=()=>{const available=commands.filter(c=>activeCategory==='All Commands'||c.category===activeCategory);if(available.length){const target=available[Math.floor(Math.random()*available.length)];query=target.name.toLowerCase();$('#search').value=target.name;filter();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})}};$('#backButton').onclick=showHome;
   $('#prevButton').onclick=()=>{if(readerMode==='tutorial')return openTutorial(tutorialCurrent-1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position>0&&openTopic(sections.indexOf(list[position-1]))};
   $('#nextButton').onclick=()=>{if(readerMode==='tutorial')return tutorialCurrent===tutorials.length-1?showHome():openTutorial(tutorialCurrent+1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position===list.length-1?showHome():openTopic(sections.indexOf(list[position+1]))};
@@ -242,7 +319,7 @@ function bind(){
     const button=e.target.closest('[data-mobile-action]');if(!button)return;
     const action=button.dataset.mobileAction;
     if(action==='home'){closeMobilePanels();showHome();setMobileNav('home');return}
-    if(action==='search'){document.body.classList.remove('menu-open');document.body.classList.toggle('mobile-search-open');setMobileNav(document.body.classList.contains('mobile-search-open')?'search':'home');if(document.body.classList.contains('mobile-search-open'))setTimeout(()=>$('#search').focus(),180);return}
+    if(action==='search'){closeMobilePanels();setMobileNav('search');$('#search').focus();return}
     document.body.classList.remove('mobile-search-open');document.body.classList.toggle('menu-open');setMobileNav(document.body.classList.contains('menu-open')?action:'home');
     if(action==='categories'&&document.body.classList.contains('menu-open'))setTimeout(()=>$('#categorySelect').focus(),180);
   };
