@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>CTF Command Hub</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=7">
+  <link rel="stylesheet" href="assets/css/styles.css?v=8">
   <link rel="stylesheet" href="assets/css/outputs.css?v=2">
   <link rel="stylesheet" href="assets/css/tutorials.css?v=2">
 </head>
@@ -68,11 +68,19 @@
     </section>
   </main>
 
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <button class="mobile-nav-item active" data-mobile-action="home" aria-label="Home"><span>⌂</span><b>Home</b></button>
+    <button class="mobile-nav-item" data-mobile-action="search" aria-label="Search commands"><span>⌕</span><b>Search</b></button>
+    <button class="mobile-nav-item" data-mobile-action="categories" aria-label="Choose category"><span>▦</span><b>Category</b></button>
+    <button class="mobile-nav-item" data-mobile-action="topics" aria-label="Browse topics"><span>☷</span><b>Topics</b></button>
+  </nav>
+  <button class="mobile-backdrop" aria-label="Close navigation panel"></button>
+
   <div id="toast" role="status"></div>
   <script src="assets/js/outputs.js?v=1"></script>
   <script src="assets/js/tutorials.js?v=1"></script>
   <script src="data/curriculum.js?v=1"></script>
   <script src="data/reference-guides.js?v=1"></script>
-  <script src="assets/js/app.js?v=21"></script>
+  <script src="assets/js/app.js?v=22"></script>
 </body>
 </html>
