@@ -1,4 +1,5 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const setCrumb=value=>{const element=$('#crumb');if(element)element.textContent=value};
 let sections=[], commands=[], current=0, tutorialCurrent=0, readerMode='topic', query='', activeCategory='All Commands', sidebarContent='topics';
 const icons=['🗂','⌕','01','ⓘ','▣','📦','◆','◈','▧','♫','⌁','◉','▤','↺','▦','PDF','DOC','⊞','▥','▣','◎','✉','#','🔐','↔','QR','</>','▯','◷','✦'];
 const categories=['All Commands','Forensics','General Skills','Cryptography','Web Exploitation','Networking','Reverse Engineering','Binary Exploitation'];
@@ -204,7 +205,7 @@ function openTopic(i){
   current=Math.max(0,Math.min(i,sections.length-1)); const s=sections[current];
   $('#home').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`TOPIC ${String(s.num).padStart(2,'0')} · ${s.tools}`;
-  $('#readerTitle').textContent=s.title;$('#crumb').textContent=s.title;
+  $('#readerTitle').textContent=s.title;setCrumb(s.title);
   $('#readerBody').innerHTML=s.lesson?formatLesson(s):s.entries?formatReferenceEntries(s.entries):format(s.lines);updateTopicNavigation();
   $$('#topics button').forEach(x=>x.classList.toggle('active',+x.dataset.index===current));
   $$('.copy').forEach(b=>b.onclick=()=>copyText(b.parentElement.dataset.command));
@@ -245,7 +246,7 @@ function openTutorial(i){
   readerMode='tutorial';tutorialCurrent=Math.max(0,Math.min(i,tutorials.length-1));const t=tutorials[tutorialCurrent];
   $('#home').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`HANDS-ON LAB ${String(tutorialCurrent+1).padStart(2,'0')} · ${t.level.toUpperCase()}`;
-  $('#readerTitle').textContent=t.name;$('#crumb').textContent=`TUTORIAL / ${t.name}`;
+  $('#readerTitle').textContent=t.name;setCrumb(`TUTORIAL / ${t.name}`);
   $('#readerBody').innerHTML=`<div class="tutorial-intro"><b>Used for</b><p>${esc(t.use)}</p><b>Before you begin</b><p>${esc(t.setup)}</p><div class="output-warning">Outputs below are realistic training examples. Your filenames, hashes, timestamps, counts, offsets, addresses, and versions will differ.</div></div>`+t.steps.map((s,n)=>`<article class="tutorial-step"><div class="step-number">${n+1}</div><div><h3>${esc(s[0])}</h3><p class="interpret"><b>Description:</b> ${esc(s[3])}</p><p class="command-label"><b>Command:</b></p><div class="command" data-command="${attr(s[1])}">${esc(s[1])}<button class="copy" title="Copy command only">Copy</button></div><div class="sample-output"><span>ACTUAL-STYLE SAMPLE OUTPUT</span><pre>${esc(s[2])}</pre></div></div></article>`).join('');
   $('#prevButton').disabled=tutorialCurrent===0;$('#nextButton').textContent=tutorialCurrent===tutorials.length-1?'Back to overview':'Next tutorial →';
   $$('#topics button').forEach(x=>x.classList.toggle('active',+x.dataset.tutorial===tutorialCurrent&&x.hasAttribute('data-tutorial')));
@@ -271,17 +272,17 @@ function formatReferenceEntries(entries){
   }).join('');
 }
 function showHome(){
-  $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');$('#crumb').textContent='HOME';
+  $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');setCrumb('HOME');
   $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));filter();window.scrollTo(0,0);document.body.classList.remove('menu-open');
 }
 function showWslGuide(){
-  closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#wslGuide').classList.add('active');$('#crumb').textContent='WSL SETUP';
+  closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#wslGuide').classList.add('active');setCrumb('WSL SETUP');
   $$('#wslGuide .copy').forEach(button=>button.onclick=()=>copyText(button.parentElement.dataset.command));
   window.scrollTo(0,0);setMobileNav('home');
 }
 function showToolsGuide(platform){
   const guide=toolSetupGuides[platform];if(!guide)return;
-  closeMobilePanels();$('#toolsSetupMenu').open=false;$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.add('active');$('#crumb').textContent=`TOOLS / ${guide.label.toUpperCase()}`;
+  closeMobilePanels();$('#toolsSetupMenu').open=false;$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.add('active');setCrumb(`TOOLS / ${guide.label.toUpperCase()}`);
   $('#toolsGuideBody').innerHTML=`<div class="tools-guide-hero"><p class="eyebrow">TOOLS SETUP · ${esc(guide.label.toUpperCase())}</p><h1>${esc(guide.label)} CTF setup</h1><h2>${esc(guide.subtitle)}</h2><p>${esc(guide.intro)}</p></div><div class="platform-tabs">${Object.entries(toolSetupGuides).map(([key,item])=>`<button class="${key===platform?'active':''}" data-guide-tab="${key}">${esc(item.label)}</button>`).join('')}</div><div class="tool-setup-grid">${guide.groups.map((group,index)=>`<article class="tool-setup-card"><span class="num">SETUP ${String(index+1).padStart(2,'0')}</span><h2>${esc(group.title)}</h2><p>${esc(group.description)}</p>${group.command?`<div class="command" data-command="${attr(group.command)}">${esc(group.command)}<button class="copy" title="Copy command only">Copy</button></div>`:''}${group.link?`<a class="primary setup-link" href="${attr(group.link)}" target="_blank" rel="noopener noreferrer">${esc(group.linkLabel)} ↗</a>`:''}</article>`).join('')}</div><div class="reference-notice"><b>Important:</b> ${esc(guide.note)}</div>`;
   $$('#toolsGuide .copy').forEach(button=>button.onclick=()=>copyText(button.parentElement.dataset.command));
   $$('#toolsGuide [data-guide-tab]').forEach(button=>button.onclick=()=>showToolsGuide(button.dataset.guideTab));window.scrollTo(0,0);setMobileNav('home');
@@ -298,7 +299,7 @@ function bind(){
   $('#topics').onclick=e=>{const b=e.target.closest('button');if(!b)return;b.hasAttribute('data-home')?showHome():b.hasAttribute('data-tutorial')?openTutorial(+b.dataset.tutorial):openTopic(+b.dataset.index)};
   $('#search').oninput=e=>{
     query=e.target.value.toLowerCase().trim();
-    $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');$('#crumb').textContent='HOME';
+    $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');setCrumb('HOME');
     $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));
     filter();
     if(query)requestAnimationFrame(()=>$('#topicGrid').scrollIntoView({block:'start'}));
