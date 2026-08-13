@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let sections=[], current=0, tutorialCurrent=0, readerMode='topic', query='', activeCategory='Forensics';
+let sections=[], commands=[], current=0, tutorialCurrent=0, readerMode='topic', query='', activeCategory='All Commands';
 const icons=['🗂','⌕','01','ⓘ','▣','📦','◆','◈','▧','♫','⌁','◉','▤','↺','▦','PDF','DOC','⊞','▥','▣','◎','✉','#','🔐','↔','QR','</>','▯','◷','✦'];
-const categories=['Forensics','General Skills','Cryptography','Web Exploitation','Networking','Reverse Engineering','Binary Exploitation'];
+const categories=['All Commands','Forensics','General Skills','Cryptography','Web Exploitation','Networking','Reverse Engineering','Binary Exploitation'];
 const categoryTopics={
   'Forensics':Array.from({length:30},(_,i)=>i+1),
   'General Skills':[],
@@ -11,7 +11,12 @@ const categoryTopics={
   'Reverse Engineering':[],
   'Binary Exploitation':[]
 };
-const state={done:JSON.parse(localStorage.getItem('forensics-done')||'[]'),theme:localStorage.getItem('forensics-theme')||'dark'};
+const tutorialCategories={
+  Wireshark:'Networking',TShark:'Networking',Ghidra:'Reverse Engineering',
+  'John the Ripper':'Cryptography',Hashcat:'Cryptography',CyberChef:'Cryptography',
+  '7-Zip':'General Skills'
+};
+const state={theme:localStorage.getItem('forensics-theme')||'dark'};
 const webExploitationTopics=[
   {
     i:-1,num:31,kind:'commands',title:'COMMON COMMANDS',tools:'curl, wget, grep, base64, xxd, openssl, dig, nslookup, host, netcat, nmap, python3',
@@ -99,37 +104,76 @@ function addReferenceTopics(){
 }
 function render(){
   $('#topicCount').textContent=sections.length;
-  renderCategories(); renderSidebar(); filter(); updateProgress(); bind();
+  commands=buildCommandIndex();
+  $('#commandCount').textContent=commands.length;
+  renderCategories(); renderSidebar(); filter(); bind();
 }
-function topicsFor(category){return sections.filter(s=>(categoryTopics[category]||[]).includes(s.num))}
+function topicsFor(category){return category==='All Commands'?sections:sections.filter(s=>(categoryTopics[category]||[]).includes(s.num))}
 function topicSequence(){return topicsFor(activeCategory)}
-function isUnlocked(topic){const list=topicSequence(),position=list.findIndex(s=>s.num===topic.num);return position<=0||state.done.includes(list[position-1].num)}
+function categoryFor(topic){return Object.entries(categoryTopics).find(([,numbers])=>numbers.includes(topic.num))?.[0]||'Forensics'}
+function tutorialCategory(tutorial){return tutorialCategories[tutorial.name]||'Forensics'}
+function buildCommandIndex(){
+  const records=[];
+  sections.forEach((topic,topicIndex)=>{
+    const category=categoryFor(topic);
+    if(topic.entries){
+      topic.entries.forEach(entry=>{
+        const [name,description,use,a,b,c]=entry,isTool=topic.kind==='tools';
+        records.push({name,description,use,command:isTool?(entry.length===6?b:a):a,output:isTool?(entry.length===6?c:b):b,category,topicIndex});
+      });
+      return;
+    }
+    let tool=topic.title,description=`Command from ${topic.title}.`;
+    topic.lines.forEach(raw=>{
+      const heading=raw.match(/^([^—]+) — (.+)$/);
+      if(heading){tool=heading[1].trim();description=heading[2].trim();return}
+      const command=/^  \S/.test(raw)&&(/<[^>]+>|\s-{1,2}\w|\| | > |^[ ]{2}[.a-zA-Z]/).test(raw);
+      if(!command)return;
+      const text=raw.trim(),syntax=text.split(/\s{2,}/)[0];
+      records.push({name:tool,description,use:`Use in ${topic.title.toLowerCase()} workflows.`,command:syntax,output:getSample(syntax),category,topicIndex});
+    });
+  });
+  return records;
+}
 function renderCategories(){
-  $('#categorySelect').innerHTML=categories.map(name=>`<option value="${attr(name)}" ${name===activeCategory?'selected':''}>${esc(name)} (${topicsFor(name).length})</option>`).join('');
+  $('#categorySelect').innerHTML=categories.map(name=>`<option value="${attr(name)}" ${name===activeCategory?'selected':''}>${esc(name)}${name==='All Commands'?'':` (${commands.filter(c=>c.category===name).length})`}</option>`).join('');
 }
 function renderSidebar(){
   const allowed=new Set(topicsFor(activeCategory).map(s=>s.num));
   const grouped=sections.map((s,i)=>({s,i})).filter(({s})=>allowed.has(s.num));
-  const group=(label,kind,open=false)=>{const items=grouped.filter(({s})=>kind==='topics'?!s.kind:s.kind===kind);if(!items.length)return'';return `<details class="nav-group" ${open?'open':''}><summary>${esc(label)}<span>${items.length}</span></summary>${items.map(({s,i})=>{const locked=!isUnlocked(s);return `<button data-index="${i}" ${locked?'disabled':''}>${locked?'🔒':String(s.num).padStart(2,'0')} &nbsp; ${esc(s.title)}</button>`}).join('')}</details>`};
-  $('#topics').innerHTML='<button class="active" data-home>⌂ &nbsp; Overview</button>'+group('Study Topics','topics',true)+group('Commands','commands',true)+group('Tools','tools',true)+'<div class="nav-label">PRACTICAL TUTORIALS</div>'+tutorials.map((t,i)=>`<button data-tutorial="${i}">▸ &nbsp; ${esc(t.name)}</button>`).join('');
+  const group=(label,kind,open=false)=>{const items=grouped.filter(({s})=>kind==='topics'?!s.kind:s.kind===kind);if(!items.length)return'';return `<details class="nav-group" ${open?'open':''}><summary>${esc(label)}<span>${items.length}</span></summary>${items.map(({s,i})=>`<button data-index="${i}">${String(s.num).padStart(2,'0')} &nbsp; ${esc(s.title)}</button>`).join('')}</details>`};
+  const visibleTutorials=tutorials.map((t,i)=>({t,i})).filter(({t})=>activeCategory==='All Commands'||tutorialCategory(t)===activeCategory);
+  $('#topics').innerHTML='<button class="active" data-home>⌂ &nbsp; Overview</button>'+group('Study Topics','topics',true)+group('Commands','commands',true)+group('Tools','tools',true)+(visibleTutorials.length?'<div class="nav-label">PRACTICAL TUTORIALS</div>'+visibleTutorials.map(({t,i})=>`<button data-tutorial="${i}">▸ &nbsp; ${esc(t.name)}</button>`).join(''):'');
+}
+function searchable(value){return String(value).toLowerCase().replace(/[^a-z0-9+./_-]+/g,' ').trim()}
+function exactSearchMatch(value){
+  const needle=searchable(query);
+  if(!needle)return true;
+  const haystack=` ${searchable(value)} `;
+  return needle.includes(' ')?haystack.includes(` ${needle} `):haystack.split(' ').includes(needle);
 }
 function filter(){
-  const allowed=new Set(topicsFor(activeCategory).map(s=>s.num));
-  const matches=sections.map((s,i)=>({s,i})).filter(({s})=>allowed.has(s.num)&&(s.title+' '+s.tools+' '+s.lines.join(' ')).toLowerCase().includes(query));
-  $('#filterStatus').textContent=query?`${matches.length} result${matches.length!==1?'s':''}`:`${matches.length} topic${matches.length!==1?'s':''}`;
-  $('#topicGrid').innerHTML=matches.length?matches.map(({s,i})=>{const locked=!isUnlocked(s);return `<article class="topic-card ${state.done.includes(s.num)?'done':''} ${locked?'locked':''}" data-index="${i}" aria-disabled="${locked}"><span class="num">${locked?'🔒 LOCKED':`${icons[i]||'•'} &nbsp; TOPIC ${String(s.num).padStart(2,'0')}`}</span><h3>${esc(s.title)}</h3><p>${locked?'Complete the previous topic to unlock this lesson.':esc(s.tools)}</p></article>`}).join(''):'<div class="empty">No matching tools or commands. Try another search.</div>';
-  $$('.topic-card:not(.locked)').forEach(x=>x.onclick=()=>openTopic(+x.dataset.index));
-  const labs=tutorials.map((t,i)=>({t,i})).filter(({t})=>(t.name+' '+t.use+' '+t.steps.flat().join(' ')).toLowerCase().includes(query));
-  $('#tutorialGrid').innerHTML=labs.length?labs.map(({t,i})=>`<article class="topic-card lab-card" data-tutorial="${i}"><span class="num">PRACTICAL LAB · ${esc(t.level.toUpperCase())}</span><h3>${esc(t.name)}</h3><p>${esc(t.use)} · ${t.steps.length} guided steps</p></article>`).join(''):'<div class="empty">No matching tutorials.</div>';
+  const matches=commands.filter(c=>(activeCategory==='All Commands'||c.category===activeCategory)&&exactSearchMatch(`${c.name} ${c.command}`));
+  const topicMatches=query?sections.map((s,i)=>({s,i,category:categoryFor(s)})).filter(({s,category})=>(activeCategory==='All Commands'||category===activeCategory)&&exactSearchMatch(s.title)):[];
+  $('#filterStatus').textContent=query?`${topicMatches.length} topic${topicMatches.length!==1?'s':''} · ${matches.length} command${matches.length!==1?'s':''}`:`${matches.length} command${matches.length!==1?'s':''}`;
+  const topicHtml=topicMatches.map(({s,i,category})=>`<article class="topic-card topic-search-result search-match" data-topic-index="${i}"><span class="num">${esc(category.toUpperCase())} · TOPIC ${String(s.num).padStart(2,'0')}</span><h3>${esc(s.title)}</h3><p>${esc(s.tools)}</p><span class="topic-open-label">Open topic →</span></article>`).join('');
+  const commandHtml=matches.map(c=>`<article class="command-result ${query?'search-match':''}" data-command-index="${commands.indexOf(c)}"><div class="command-result-head"><div><span class="num">${esc(c.category.toUpperCase())}</span><h3>${esc(c.name)}</h3></div><button class="secondary open-reference" type="button">Full reference →</button></div><p><b>Description:</b> ${esc(c.description)}</p><p class="command-use"><b>Use it to:</b> ${esc(c.use)}</p><p class="command-label"><b>Command:</b></p><div class="command" data-command="${attr(c.command)}">${esc(c.command)}<button class="copy" title="Copy command only">Copy</button></div>${c.output?`<div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(c.output)}</pre></div>`:''}</article>`).join('');
+  $('#topicGrid').innerHTML=topicHtml+commandHtml||'<div class="empty">No matching topics or commands. Try another name, task, tool, or keyword.</div>';
+  $$('.topic-search-result').forEach(card=>card.onclick=()=>openTopic(+card.dataset.topicIndex));
+  $$('.command-result .copy').forEach(b=>b.onclick=e=>{e.stopPropagation();copyText(b.parentElement.dataset.command)});
+  $$('.command-result .open-reference').forEach(b=>b.onclick=()=>openTopic(commands[+b.closest('.command-result').dataset.commandIndex].topicIndex));
+  const labs=tutorials.map((t,i)=>({t,i})).filter(({t})=>(activeCategory==='All Commands'||tutorialCategory(t)===activeCategory)&&(t.name+' '+t.use+' '+t.steps.flat().join(' ')).toLowerCase().includes(query));
+  $('#tutorialCount').textContent=`${labs.length} guided walkthrough${labs.length!==1?'s':''}`;
+  $('.tutorial-heading').hidden=!labs.length;$('#tutorialGrid').hidden=!labs.length;
+  $('#tutorialGrid').innerHTML=labs.map(({t,i})=>`<article class="topic-card lab-card" data-tutorial="${i}"><span class="num">PRACTICAL LAB · ${esc(t.level.toUpperCase())}</span><h3>${esc(t.name)}</h3><p>${esc(t.use)} · ${t.steps.length} guided steps</p></article>`).join('');
   $$('.lab-card').forEach(x=>x.onclick=()=>openTutorial(+x.dataset.tutorial));
 }
 function openTopic(i){
   readerMode='topic';
-  $('#completeCheck').parentElement.style.display='';
-  current=Math.max(0,Math.min(i,sections.length-1)); const s=sections[current];if(!isUnlocked(s)){toast('Complete the previous topic first');showHome();return}
+  current=Math.max(0,Math.min(i,sections.length-1)); const s=sections[current];
   $('#home').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`TOPIC ${String(s.num).padStart(2,'0')} · ${s.tools}`;
-  $('#readerTitle').textContent=s.title;$('#crumb').textContent=s.title;$('#completeCheck').checked=state.done.includes(s.num);
+  $('#readerTitle').textContent=s.title;$('#crumb').textContent=s.title;
   $('#readerBody').innerHTML=s.entries?formatReferenceEntries(s.entries):format(s.lines);updateTopicNavigation();
   $$('#topics button').forEach(x=>x.classList.toggle('active',+x.dataset.index===current));
   $$('.copy').forEach(b=>b.onclick=()=>copyText(b.parentElement.dataset.command));
@@ -139,8 +183,8 @@ function openTutorial(i){
   readerMode='tutorial';tutorialCurrent=Math.max(0,Math.min(i,tutorials.length-1));const t=tutorials[tutorialCurrent];
   $('#home').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`HANDS-ON LAB ${String(tutorialCurrent+1).padStart(2,'0')} · ${t.level.toUpperCase()}`;
-  $('#readerTitle').textContent=t.name;$('#crumb').textContent=`TUTORIAL / ${t.name}`;$('#completeCheck').parentElement.style.display='none';
-  $('#readerBody').innerHTML=`<div class="tutorial-intro"><b>Used for</b><p>${esc(t.use)}</p><b>Before you begin</b><p>${esc(t.setup)}</p><div class="output-warning">Outputs below are realistic training examples. Your filenames, hashes, timestamps, counts, offsets, addresses, and versions will differ.</div></div>`+t.steps.map((s,n)=>`<article class="tutorial-step"><div class="step-number">${n+1}</div><div><h3>${esc(s[0])}</h3><div class="command" data-command="${attr(s[1])}">${esc(s[1])}<button class="copy" title="Copy command or action">Copy</button></div><div class="sample-output"><span>ACTUAL-STYLE SAMPLE OUTPUT</span><pre>${esc(s[2])}</pre></div><p class="interpret"><b>What it means:</b> ${esc(s[3])}</p></div></article>`).join('');
+  $('#readerTitle').textContent=t.name;$('#crumb').textContent=`TUTORIAL / ${t.name}`;
+  $('#readerBody').innerHTML=`<div class="tutorial-intro"><b>Used for</b><p>${esc(t.use)}</p><b>Before you begin</b><p>${esc(t.setup)}</p><div class="output-warning">Outputs below are realistic training examples. Your filenames, hashes, timestamps, counts, offsets, addresses, and versions will differ.</div></div>`+t.steps.map((s,n)=>`<article class="tutorial-step"><div class="step-number">${n+1}</div><div><h3>${esc(s[0])}</h3><p class="interpret"><b>Description:</b> ${esc(s[3])}</p><p class="command-label"><b>Command:</b></p><div class="command" data-command="${attr(s[1])}">${esc(s[1])}<button class="copy" title="Copy command only">Copy</button></div><div class="sample-output"><span>ACTUAL-STYLE SAMPLE OUTPUT</span><pre>${esc(s[2])}</pre></div></div></article>`).join('');
   $('#prevButton').disabled=tutorialCurrent===0;$('#nextButton').textContent=tutorialCurrent===tutorials.length-1?'Back to overview':'Next tutorial →';
   $$('#topics button').forEach(x=>x.classList.toggle('active',+x.dataset.tutorial===tutorialCurrent&&x.hasAttribute('data-tutorial')));
   $$('.copy').forEach(b=>b.onclick=()=>copyText(b.parentElement.dataset.command));window.scrollTo(0,0);document.body.classList.remove('menu-open');
@@ -152,7 +196,7 @@ function format(lines){
     const tool=line.match(/^([^—]+) — (.+)$/);
     const command=/^  \S/.test(raw)&&(/<[^>]+>|\s-{1,2}\w|\| | > |^[ ]{2}[.a-zA-Z]/).test(raw);
     if(tool){close();html+=`<div class="study-block"><h3>${esc(tool[1].trim())}</h3><p>${esc(tool[2])}</p>`;block=true}
-    else if(command){const cmd=line.trim(),copy=cmd.split(/\s{2,}/)[0],sample=getSample(copy);html+=`<div class="command" data-command="${attr(copy)}">${esc(cmd)}<button class="copy" title="Copy command">Copy</button></div>${sample?`<div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(sample)}</pre></div>`:''}`}
+    else if(command){const parts=line.trim().split(/\s{2,}/),copy=parts.shift(),description=parts.join(' ').trim(),sample=getSample(copy);html+=`${description?`<p class="command-description"><b>Description:</b> ${esc(description)}</p>`:''}<p class="command-label"><b>Command:</b></p><div class="command" data-command="${attr(copy)}">${esc(copy)}<button class="copy" title="Copy command only">Copy</button></div>${sample?`<div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(sample)}</pre></div>`:''}`}
     else {if(!block){html+='<div class="study-block">';block=true} const cls=/^(Note|Tip|Caution|Security|Important|Recovery|Offset)/i.test(line)?'note':'';html+=`<p class="${cls}">${esc(line)}</p>`}
   } close(); return html;
 }
@@ -161,34 +205,37 @@ function formatReferenceEntries(entries){
   return `<div class="reference-notice">Install commands target Debian, Ubuntu, or Kali unless noted. Confirm packages for your operating system. Use security tools only on systems you own or have permission to assess.</div>`+entries.map(entry=>{
     let [name,explanation,use,a,b,c]=entry,install='',command=a,output=b;
     if(isTools){install=entry.length===6?a:(webToolInstallations[name]||'Use the official project documentation for your platform.');command=entry.length===6?b:a;output=entry.length===6?c:b}
-    return `<article class="study-block reference-entry"><h3>${esc(name)}</h3><p>${esc(explanation)}</p><p><b>Use:</b> ${esc(use)}</p>${isTools?`<p class="install-label"><b>Install:</b></p><div class="command" data-command="${attr(install)}">${esc(install)}<button class="copy" title="Copy installation command">Copy</button></div><p class="use-label"><b>First use:</b></p>`:''}<div class="command" data-command="${attr(command)}">${esc(command)}<button class="copy" title="Copy command or action">Copy</button></div><div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(output||'Command completed successfully.')}</pre></div></article>`
+    return `<article class="study-block reference-entry"><h3>${esc(name)}</h3><p><b>Description:</b> ${esc(explanation)}</p><p><b>Use:</b> ${esc(use)}</p>${isTools?`<p class="install-label"><b>Install:</b></p><div class="command" data-command="${attr(install)}">${esc(install)}<button class="copy" title="Copy installation command only">Copy</button></div><p class="use-label"><b>Command:</b></p>`:'<p class="command-label"><b>Command:</b></p>'}<div class="command" data-command="${attr(command)}">${esc(command)}<button class="copy" title="Copy command only">Copy</button></div><div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(output||'Command completed successfully.')}</pre></div></article>`
   }).join('');
 }
 function showHome(){
   $('#reader').classList.remove('active');$('#home').classList.add('active');$('#crumb').textContent='HOME';
-  $('#completeCheck').parentElement.style.display='';
   $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));filter();window.scrollTo(0,0);document.body.classList.remove('menu-open');
 }
 function updateTopicNavigation(){
   const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num),hasNext=position>=0&&position<list.length-1;
   $('#prevButton').disabled=position<=0;
-  $('#nextButton').disabled=hasNext&&!state.done.includes(sections[current].num);
+  $('#nextButton').disabled=false;
   $('#nextButton').textContent=hasNext?'Next topic →':'Back to overview';
 }
-function toggleDone(){const n=sections[current].num;if($('#completeCheck').checked&&!state.done.includes(n))state.done.push(n);else if(!$('#completeCheck').checked)state.done=state.done.filter(x=>x!==n);localStorage.setItem('forensics-done',JSON.stringify(state.done));updateProgress();renderSidebar();filter();updateTopicNavigation()}
-function updateProgress(){const n=state.done.length,total=sections.length||30;$('#progressText').textContent=`${n} / ${total}`;$('#progressBar').style.width=`${n/total*100}%`}
 function bind(){
   $('#topics').onclick=e=>{const b=e.target.closest('button');if(!b)return;b.hasAttribute('data-home')?showHome():b.hasAttribute('data-tutorial')?openTutorial(+b.dataset.tutorial):openTopic(+b.dataset.index)};
-  $('#search').oninput=e=>{query=e.target.value.toLowerCase().trim();showHome()};
+  $('#search').oninput=e=>{
+    query=e.target.value.toLowerCase().trim();
+    $('#reader').classList.remove('active');$('#home').classList.add('active');$('#crumb').textContent='HOME';
+    $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));
+    filter();
+    if(query)requestAnimationFrame(()=>$('#topicGrid').scrollIntoView({block:'start'}));
+    else window.scrollTo(0,0);
+  };
   $('#categorySelect').onchange=e=>{activeCategory=e.target.value;renderSidebar();showHome()};
   document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('#search').focus()}if(e.key==='Escape'){$('#search').value='';query='';showHome()}});
-  $('#continueButton').onclick=()=>{const list=topicSequence(),target=list.find(s=>!state.done.includes(s.num))||list[0];if(target)openTopic(sections.indexOf(target))};
-  $('#randomButton').onclick=()=>{const available=topicSequence().filter(isUnlocked);if(available.length){const target=available[Math.floor(Math.random()*available.length)];openTopic(sections.indexOf(target))}};$('#backButton').onclick=showHome;
+  $('#browseCommandsButton').onclick=()=>{$('#search').focus();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})};
+  $('#randomButton').onclick=()=>{const available=commands.filter(c=>activeCategory==='All Commands'||c.category===activeCategory);if(available.length){const target=available[Math.floor(Math.random()*available.length)];query=target.name.toLowerCase();$('#search').value=target.name;filter();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})}};$('#backButton').onclick=showHome;
   $('#prevButton').onclick=()=>{if(readerMode==='tutorial')return openTutorial(tutorialCurrent-1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position>0&&openTopic(sections.indexOf(list[position-1]))};
-  $('#nextButton').onclick=()=>{if(readerMode==='tutorial')return tutorialCurrent===tutorials.length-1?showHome():openTutorial(tutorialCurrent+1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position===list.length-1?showHome():state.done.includes(sections[current].num)&&openTopic(sections.indexOf(list[position+1]))};
-  $('#completeCheck').onchange=toggleDone;$('#menuButton').onclick=()=>document.body.classList.toggle('menu-open');
+  $('#nextButton').onclick=()=>{if(readerMode==='tutorial')return tutorialCurrent===tutorials.length-1?showHome():openTutorial(tutorialCurrent+1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position===list.length-1?showHome():openTopic(sections.indexOf(list[position+1]))};
+  $('#menuButton').onclick=()=>document.body.classList.toggle('menu-open');
   $('#themeButton').onclick=()=>{document.body.classList.toggle('light');state.theme=document.body.classList.contains('light')?'light':'dark';localStorage.setItem('forensics-theme',state.theme)};
-  $('#resetProgress').onclick=()=>{if(confirm('Reset all study progress?')){state.done=[];localStorage.removeItem('forensics-done');updateProgress();renderSidebar();filter()}};
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Command copied')}catch{toast('Select and copy the command manually')}}
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1300)}

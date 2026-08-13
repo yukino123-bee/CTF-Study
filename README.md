@@ -1,6 +1,6 @@
-# CTF Study
+# CTF Command Hub
 
-An offline study reference for preparing for CTF-style cybersecurity competitions.
+An offline, searchable command reference for CTF-style cybersecurity competitions. Search by command, tool, task, or keyword to see what a command does, when to use it, and a copyable example with illustrative output.
 
 ## Project structure
 
