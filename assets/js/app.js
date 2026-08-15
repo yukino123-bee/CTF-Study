@@ -1,8 +1,17 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const setCrumb=value=>{const element=$('#crumb');if(element)element.textContent=value};
-let sections=[], commands=[], current=0, tutorialCurrent=0, readerMode='topic', query='', activeCategory='All Commands', sidebarContent='topics';
+let sections=[], commands=[], current=0, tutorialCurrent=0, readerMode='topic', query='', activeCategory='All Commands', activeDifficulty='All Levels', activeCommandGroup='All Command Categories';
 const icons=['🗂','⌕','01','ⓘ','▣','📦','◆','◈','▧','♫','⌁','◉','▤','↺','▦','PDF','DOC','⊞','▥','▣','◎','✉','#','🔐','↔','QR','</>','▯','◷','✦'];
 const categories=['All Commands','Forensics','General Skills','Cryptography','Web Exploitation','Networking','Reverse Engineering','Binary Exploitation'];
+const categoryDescriptions={
+  'Forensics':'Inspect files, disks, memory, metadata, network captures, and recovered artifacts.',
+  'General Skills':'Build confidence with Linux, Python, archives, text processing, and everyday utilities.',
+  'Cryptography':'Work with encodings, hashes, classical ciphers, encryption, and password challenges.',
+  'Web Exploitation':'Inspect HTTP traffic and test authorized web applications, APIs, and input handling.',
+  'Networking':'Explore hosts, ports, services, DNS, packets, and network communications.',
+  'Reverse Engineering':'Examine compiled programs with disassemblers, decompilers, and debuggers.',
+  'Binary Exploitation':'Study program protections, memory corruption, ROP, and exploit-development workflows.'
+};
 const categoryTopics={
   'Forensics':Array.from({length:30},(_,i)=>i+1),
   'General Skills':[],
@@ -17,6 +26,71 @@ const tutorialCategories={
   'John the Ripper':'Cryptography',Hashcat:'Cryptography',CyberChef:'Cryptography',
   '7-Zip':'General Skills'
 };
+const intermediateTools=new Set(['awk and cut','binwalk','foremost','sleuth kit','testdisk','tshark','john the ripper','stegseek','zsteg','ffuf','gobuster','nikto','sqlmap','nmap','openssl','pwntools','objdump','radare2','gdb']);
+const advancedTools=new Set(['volatility 3','hashcat','ghidra','ropgadget','ropper','checksec','angr','ida','binary ninja']);
+function difficultyFor(name,command=''){
+  const normalized=searchable(name);
+  if([...advancedTools].some(tool=>normalized.includes(tool)))return 'Advanced';
+  if([...intermediateTools].some(tool=>normalized.includes(tool)))return 'Intermediate';
+  const syntax=String(command);
+  if(/\b(?:--?script|--?data|--?request|-exec|subprocess|hashlib|socket|struct)\b|[|].*[|]|&&.*&&/.test(syntax))return 'Intermediate';
+  return 'Beginner';
+}
+function matchesDifficulty(item){return activeDifficulty==='All Levels'||item.difficulty===activeDifficulty}
+function commandGroupFor(category,name,command='',use=''){
+  const text=searchable(`${name} ${command} ${use}`);
+  const has=pattern=>pattern.test(text);
+  if(category==='Forensics'){
+    if(has(/volatility|memory|memproc|process|ram/))return 'Memory Forensics';
+    if(has(/wireshark|tshark|pcap|packet|network|tcp|dns/))return 'Network Forensics';
+    if(has(/exif|metadata|timestamp/))return 'Metadata & Timelines';
+    if(has(/steg|zsteg|image|png|audio|spectro/))return 'Steganography & Media';
+    if(has(/foremost|photorec|testdisk|sleuth|autopsy|fls|icat|disk|carv|recover/))return 'Disk & Recovery';
+    if(has(/strings|file|xxd|hex|binwalk|signature|archive|7z|unzip/))return 'File Triage & Extraction';
+    return 'Artifact Analysis';
+  }
+  if(category==='Cryptography'){
+    if(has(/john|hashcat|password|crack|wordlist/))return 'Password Recovery';
+    if(has(/hash|md5|sha|digest/))return 'Hashing';
+    if(has(/base64|base32|hex|encode|decode|cyberchef/))return 'Encoding & Decoding';
+    if(has(/openssl|encrypt|decrypt|aes|rsa|key|certificate|tls/))return 'Encryption & Keys';
+    return 'Ciphers & Analysis';
+  }
+  if(category==='Web Exploitation'){
+    if(has(/gobuster|ffuf|dirsearch|hidden|directory|path/))return 'Content Discovery';
+    if(has(/sqlmap|sql|injection|xss|idor|traversal|upload/))return 'Vulnerability Testing';
+    if(has(/postman|api|jwt|json/))return 'API & Token Testing';
+    if(has(/nmap|nikto|whatweb|wappalyzer|fingerprint|scan/))return 'Reconnaissance';
+    if(has(/curl|wget|burp|zap|http|browser|devtools/))return 'HTTP Inspection';
+    return 'Web Utilities';
+  }
+  if(category==='Networking'){
+    if(has(/dig|nslookup|host|dns/))return 'DNS';
+    if(has(/wireshark|tshark|tcpdump|pcap|packet/))return 'Packet Analysis';
+    if(has(/nmap|port|service|scan/))return 'Host & Service Discovery';
+    if(has(/nc|netcat|curl|wget|ssh|transfer|socket/))return 'Connections & Transfer';
+    return 'Network Utilities';
+  }
+  if(category==='Reverse Engineering'){
+    if(has(/gdb|debug|ltrace|strace|dynamic/))return 'Dynamic Analysis';
+    if(has(/ghidra|ida|binary ninja|radare|objdump|disassembl|decompil/))return 'Static Analysis';
+    if(has(/strings|file|readelf|nm|hexdump|xxd/))return 'Binary Triage';
+    return 'Code & Binary Analysis';
+  }
+  if(category==='Binary Exploitation'){
+    if(has(/rop|gadget|ropper/))return 'ROP & Gadgets';
+    if(has(/gdb|pwndbg|gef|debug/))return 'Debugging';
+    if(has(/checksec|readelf|elf|protection/))return 'Protections & ELF Triage';
+    if(has(/pwntools|python|socket|pack|unpack/))return 'Exploit Scripting';
+    return 'Memory Exploitation';
+  }
+  if(has(/python|pip|subprocess|hashlib/))return 'Python & Scripting';
+  if(has(/grep| rg |awk|cut|sed|sort|head|tail|cat|less/))return 'Text Processing';
+  if(has(/zip|unzip|tar|gzip|archive|7z/))return 'Archives & Compression';
+  if(has(/curl|wget|nmap|nc|netcat|ssh|network/))return 'Networking';
+  if(has(/pwd| ls | cd |mkdir|touch|cp |mv |rm |chmod|find/))return 'Files & Navigation';
+  return 'Core Utilities';
+}
 const toolSetupGuides={
   linux:{label:'Linux',subtitle:'Native Linux workstation',intro:'Install terminal-first CTF utilities from your distribution package manager. These commands target Ubuntu, Debian, and Kali Linux.',groups:[
     {title:'Core command-line toolkit',description:'File inspection, archives, text processing, networking, metadata, and Python.',command:'sudo apt update && sudo apt install -y file binutils ripgrep unzip zip p7zip-full tar gzip bzip2 xz-utils curl wget git openssl python3 python3-pip netcat-openbsd nmap exiftool binwalk'},
@@ -126,7 +200,7 @@ function render(){
   $('#topicCount').textContent=sections.length;
   commands=buildCommandIndex();
   $('#commandCount').textContent=commands.length;
-  renderCategories(); renderSidebar(); filter(); bind();
+  filter(); bind();
 }
 function topicsFor(category){return category==='All Commands'?sections:sections.filter(s=>(categoryTopics[category]||[]).includes(s.num))}
 function topicSequence(){return topicsFor(activeCategory)}
@@ -139,7 +213,8 @@ function buildCommandIndex(){
     if(topic.entries){
       topic.entries.forEach(entry=>{
         const [name,description,use,a,b,c]=entry,isTool=topic.kind==='tools';
-        records.push({name,description,use,command:isTool?(entry.length===6?b:a):a,output:isTool?(entry.length===6?c:b):b,category,topicIndex});
+        const command=isTool?(entry.length===6?b:a):a;
+        records.push({name,description,use,command,output:isTool?(entry.length===6?c:b):b,category,topicIndex,difficulty:difficultyFor(name,command),commandGroup:commandGroupFor(category,name,command,use)});
       });
       return;
     }
@@ -150,21 +225,11 @@ function buildCommandIndex(){
       const command=/^  \S/.test(raw)&&(/<[^>]+>|\s-{1,2}\w|\| | > |^[ ]{2}[.a-zA-Z]/).test(raw);
       if(!command)return;
       const text=raw.trim(),syntax=text.split(/\s{2,}/)[0];
-      records.push({name:tool,description,use:`Use in ${topic.title.toLowerCase()} workflows.`,command:syntax,output:getSample(syntax),category,topicIndex});
+      const use=`Use in ${topic.title.toLowerCase()} workflows.`;
+      records.push({name:tool,description,use,command:syntax,output:getSample(syntax),category,topicIndex,difficulty:difficultyFor(tool,syntax),commandGroup:commandGroupFor(category,tool,syntax,use)});
     });
   });
   return records;
-}
-function renderCategories(){
-  $('#categorySelect').innerHTML=categories.map(name=>`<option value="${attr(name)}" ${name===activeCategory?'selected':''}>${esc(name)}${name==='All Commands'?'':` (${commands.filter(c=>c.category===name).length})`}</option>`).join('');
-}
-function renderSidebar(){
-  const allowed=new Set(topicsFor(activeCategory).map(s=>s.num));
-  const grouped=sections.map((s,i)=>({s,i})).filter(({s})=>allowed.has(s.num));
-  const group=(label,kind,open=false)=>{const items=grouped.filter(({s})=>kind==='topics'?!s.kind:s.kind===kind);if(!items.length)return'';return `<details class="nav-group" ${open?'open':''}><summary>${esc(label)}<span>${items.length}</span></summary>${items.map(({s,i})=>`<button data-index="${i}">${String(s.num).padStart(2,'0')} &nbsp; ${esc(s.title)}</button>`).join('')}</details>`};
-  const visibleTutorials=tutorials.map((t,i)=>({t,i})).filter(({t})=>activeCategory==='All Commands'||tutorialCategory(t)===activeCategory);
-  const content=sidebarContent==='topics'?group('Study Topics','topics',true):sidebarContent==='commands'?group('Commands','commands',true):sidebarContent==='tools'?group('Tools','tools',true):visibleTutorials.map(({t,i})=>`<button data-tutorial="${i}">▸ &nbsp; ${esc(t.name)}</button>`).join('');
-  $('#topics').innerHTML='<button class="active" data-home>⌂ &nbsp; Overview</button>'+(content||'<div class="sidebar-empty">No content in this category.</div>');
 }
 function searchable(value){return String(value).toLowerCase().replace(/[^a-z0-9+./_-]+/g,' ').trim()}
 function exactSearchMatch(value){
@@ -183,18 +248,42 @@ function groupCommandMatches(matches){
   });
   return [...groups.values()];
 }
+function commandCard(c){
+  return `<article class="command-result ${query?'search-match':''}" data-command-index="${c.sourceIndex}"><div class="command-result-head"><div><span class="num">${esc(c.category.toUpperCase())} · ${esc(c.difficulty.toUpperCase())}</span><h3>${esc(c.name)}</h3></div><button class="secondary open-reference" type="button">Full reference →</button></div><p><b>Description:</b> ${esc(c.description)}</p><p class="command-use"><b>Use it to:</b> ${esc(c.use)}</p><p class="command-label"><b>${c.variants.length===1?'Command':'Command variants'}:</b></p><div class="command-variants">${c.variants.map((variant,index)=>`<div class="command-variant"><span>${c.variants.length>1?`${index+1}. `:''}${esc(variant.use)}</span><div class="command" data-command="${attr(variant.command)}">${esc(variant.command)}<button class="copy" title="Copy command only">Copy</button></div>${variant.output?`<details class="variant-output"><summary>View sample output</summary><div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(variant.output)}</pre></div></details>`:''}</div>`).join('')}</div></article>`;
+}
 function filter(){
-  const matches=commands.filter(c=>(activeCategory==='All Commands'||c.category===activeCategory)&&exactSearchMatch(`${c.name} ${c.command}`));
+  const categoryFilters=$('#categoryCommandFilters'),categorySelected=activeCategory!=='All Commands';
+  categoryFilters.hidden=!categorySelected;
+  if(categorySelected){
+    $('#categoryFilterTitle').textContent=activeCategory;
+    $('#inlineDifficultySelect').value=activeDifficulty;
+    const commandGroups=[...new Set(commands.filter(command=>command.category===activeCategory).map(command=>command.commandGroup))].sort();
+    if(activeCommandGroup!=='All Command Categories'&&!commandGroups.includes(activeCommandGroup))activeCommandGroup='All Command Categories';
+    $('#commandGroupSelect').innerHTML=['All Command Categories',...commandGroups].map(group=>`<option value="${attr(group)}" ${group===activeCommandGroup?'selected':''}>${esc(group)}</option>`).join('');
+    if($('#categoryCommandSearch').value!==query)$('#categoryCommandSearch').value=query;
+  }
+  const matches=commands.filter(c=>(activeCategory==='All Commands'||c.category===activeCategory)&&matchesDifficulty(c)&&(activeCommandGroup==='All Command Categories'||c.commandGroup===activeCommandGroup)&&exactSearchMatch(`${c.name} ${c.command}`));
   const commandGroups=query?groupCommandMatches(matches):matches.map(command=>({...command,sourceIndex:commands.indexOf(command),variants:[command]}));
   const topicMatches=query?sections.map((s,i)=>({s,i,category:categoryFor(s)})).filter(({s,category})=>(activeCategory==='All Commands'||category===activeCategory)&&exactSearchMatch(s.title)):[];
   $('#filterStatus').textContent=query?`${topicMatches.length} topic${topicMatches.length!==1?'s':''} · ${commandGroups.length} tool${commandGroups.length!==1?'s':''} · ${matches.length} command${matches.length!==1?'s':''}`:`${matches.length} command${matches.length!==1?'s':''}`;
   const topicHtml=topicMatches.map(({s,i,category})=>`<article class="topic-card topic-search-result search-match" data-topic-index="${i}"><span class="num">${esc(category.toUpperCase())} · TOPIC ${String(s.num).padStart(2,'0')}</span><h3>${esc(s.title)}</h3><p>${esc(s.tools)}</p><span class="topic-open-label">Open topic →</span></article>`).join('');
-  const commandHtml=commandGroups.map(c=>`<article class="command-result ${query?'search-match':''}" data-command-index="${c.sourceIndex}"><div class="command-result-head"><div><span class="num">${esc(c.category.toUpperCase())}</span><h3>${esc(c.name)}</h3></div><button class="secondary open-reference" type="button">Full reference →</button></div><p><b>Description:</b> ${esc(c.description)}</p><p class="command-use"><b>Use it to:</b> ${esc(c.use)}</p><p class="command-label"><b>${c.variants.length===1?'Command':'Command variants'}:</b></p><div class="command-variants">${c.variants.map((variant,index)=>`<div class="command-variant"><span>${c.variants.length>1?`${index+1}. `:''}${esc(variant.use)}</span><div class="command" data-command="${attr(variant.command)}">${esc(variant.command)}<button class="copy" title="Copy command only">Copy</button></div>${variant.output?`<details class="variant-output"><summary>View sample output</summary><div class="sample-output"><span>SAMPLE OUTPUT · ILLUSTRATIVE</span><pre>${esc(variant.output)}</pre></div></details>`:''}</div>`).join('')}</div></article>`).join('');
-  $('#topicGrid').innerHTML=topicHtml+commandHtml||'<div class="empty">No matching topics or commands. Try another name, task, tool, or keyword.</div>';
+  const categoryHtml=!query&&activeCategory==='All Commands'?categories.slice(1).map(category=>{
+    const categoryCommands=commands.filter(command=>command.category===category);
+    const levels=['Beginner','Intermediate','Advanced'].map(level=>`${categoryCommands.filter(command=>command.difficulty===level).length} ${level}`).join(' · ');
+    return `<article class="topic-card category-card" data-category="${attr(category)}"><span class="num">CTF CATEGORY · ${categoryCommands.length} COMMANDS</span><h3>${esc(category)}</h3><p>${esc(categoryDescriptions[category])}</p><span class="category-levels">${esc(levels)}</span><span class="topic-open-label">Open category →</span></article>`;
+  }).join(''):'';
+  const commandHtml=categoryHtml?'':activeCategory!=='All Commands'?['Beginner','Intermediate','Advanced'].filter(level=>activeDifficulty==='All Levels'||level===activeDifficulty).map(level=>{
+    const levelCommands=commandGroups.filter(command=>command.difficulty===level);
+    if(!levelCommands.length)return '';
+    const groups=[...new Set(levelCommands.map(command=>command.commandGroup))].sort();
+    return `<div class="difficulty-heading"><span>${esc(level.toUpperCase())}</span><h3>${level} commands</h3><p>${levelCommands.length} command example${levelCommands.length!==1?'s':''} across ${groups.length} command categor${groups.length===1?'y':'ies'}</p></div>${groups.map(group=>{const groupedCommands=levelCommands.filter(command=>command.commandGroup===group);return `<div class="command-group-heading"><span>COMMAND CATEGORY</span><h4>${esc(group)}</h4><b>${groupedCommands.length}</b></div>${groupedCommands.map(commandCard).join('')}`}).join('')}`;
+  }).join(''):commandGroups.map(commandCard).join('');
+  $('#topicGrid').innerHTML=topicHtml+categoryHtml+commandHtml||'<div class="empty">No matching topics or commands. Try another name, task, tool, or keyword.</div>';
+  $$('.category-card').forEach(card=>card.onclick=()=>{activeCategory=card.dataset.category;activeDifficulty='All Levels';activeCommandGroup='All Command Categories';filter();window.scrollTo({top:$('#topicGrid').offsetTop-90,behavior:'smooth'})});
   $$('.topic-search-result').forEach(card=>card.onclick=()=>openTopic(+card.dataset.topicIndex));
   $$('.command-result .copy').forEach(b=>b.onclick=e=>{e.stopPropagation();copyText(b.parentElement.dataset.command)});
   $$('.command-result .open-reference').forEach(b=>b.onclick=()=>openTopic(commands[+b.closest('.command-result').dataset.commandIndex].topicIndex));
-  const labs=tutorials.map((t,i)=>({t,i})).filter(({t})=>(activeCategory==='All Commands'||tutorialCategory(t)===activeCategory)&&(t.name+' '+t.use+' '+t.steps.flat().join(' ')).toLowerCase().includes(query));
+  const labs=tutorials.map((t,i)=>({t,i})).filter(({t})=>(activeCategory==='All Commands'||tutorialCategory(t)===activeCategory)&&(activeDifficulty==='All Levels'||t.level===activeDifficulty)&&(t.name+' '+t.use+' '+t.steps.flat().join(' ')).toLowerCase().includes(query));
   $('#tutorialCount').textContent=`${labs.length} guided walkthrough${labs.length!==1?'s':''}`;
   $('.tutorial-heading').hidden=!labs.length;$('#tutorialGrid').hidden=!labs.length;
   $('#tutorialGrid').innerHTML=labs.map(({t,i})=>`<article class="topic-card lab-card" data-tutorial="${i}"><span class="num">PRACTICAL LAB · ${esc(t.level.toUpperCase())}</span><h3>${esc(t.name)}</h3><p>${esc(t.use)} · ${t.steps.length} guided steps</p></article>`).join('');
@@ -207,7 +296,6 @@ function openTopic(i){
   $('#readerNumber').textContent=`TOPIC ${String(s.num).padStart(2,'0')} · ${s.tools}`;
   $('#readerTitle').textContent=s.title;setCrumb(s.title);
   $('#readerBody').innerHTML=s.lesson?formatLesson(s):s.entries?formatReferenceEntries(s.entries):format(s.lines);updateTopicNavigation();
-  $$('#topics button').forEach(x=>x.classList.toggle('active',+x.dataset.index===current));
   $$('.copy').forEach(b=>b.onclick=()=>copyText(b.parentElement.dataset.command));
   window.scrollTo(0,0);document.body.classList.remove('menu-open');
 }
@@ -249,7 +337,6 @@ function openTutorial(i){
   $('#readerTitle').textContent=t.name;setCrumb(`TUTORIAL / ${t.name}`);
   $('#readerBody').innerHTML=`<div class="tutorial-intro"><b>Used for</b><p>${esc(t.use)}</p><b>Before you begin</b><p>${esc(t.setup)}</p><div class="output-warning">Outputs below are realistic training examples. Your filenames, hashes, timestamps, counts, offsets, addresses, and versions will differ.</div></div>`+t.steps.map((s,n)=>`<article class="tutorial-step"><div class="step-number">${n+1}</div><div><h3>${esc(s[0])}</h3><p class="interpret"><b>Description:</b> ${esc(s[3])}</p><p class="command-label"><b>Command:</b></p><div class="command" data-command="${attr(s[1])}">${esc(s[1])}<button class="copy" title="Copy command only">Copy</button></div><div class="sample-output"><span>ACTUAL-STYLE SAMPLE OUTPUT</span><pre>${esc(s[2])}</pre></div></div></article>`).join('');
   $('#prevButton').disabled=tutorialCurrent===0;$('#nextButton').textContent=tutorialCurrent===tutorials.length-1?'Back to overview':'Next tutorial →';
-  $$('#topics button').forEach(x=>x.classList.toggle('active',+x.dataset.tutorial===tutorialCurrent&&x.hasAttribute('data-tutorial')));
   $$('.copy').forEach(b=>b.onclick=()=>copyText(b.parentElement.dataset.command));window.scrollTo(0,0);document.body.classList.remove('menu-open');
 }
 function format(lines){
@@ -273,7 +360,7 @@ function formatReferenceEntries(entries){
 }
 function showHome(){
   $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');setCrumb('HOME');
-  $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));filter();window.scrollTo(0,0);document.body.classList.remove('menu-open');
+  filter();window.scrollTo(0,0);
 }
 function showWslGuide(){
   closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#wslGuide').classList.add('active');setCrumb('WSL SETUP');
@@ -288,7 +375,7 @@ function showToolsGuide(platform){
   $$('#toolsGuide [data-guide-tab]').forEach(button=>button.onclick=()=>showToolsGuide(button.dataset.guideTab));window.scrollTo(0,0);setMobileNav('home');
 }
 function closeMobilePanels(){document.body.classList.remove('menu-open','mobile-search-open')}
-function setMobileNav(action){$$('.mobile-nav-item').forEach(item=>item.classList.toggle('active',item.dataset.mobileAction===action))}
+function setMobileNav(){}
 function updateTopicNavigation(){
   const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num),hasNext=position>=0&&position<list.length-1;
   $('#prevButton').disabled=position<=0;
@@ -296,35 +383,26 @@ function updateTopicNavigation(){
   $('#nextButton').textContent=hasNext?'Next topic →':'Back to overview';
 }
 function bind(){
-  $('#topics').onclick=e=>{const b=e.target.closest('button');if(!b)return;b.hasAttribute('data-home')?showHome():b.hasAttribute('data-tutorial')?openTutorial(+b.dataset.tutorial):openTopic(+b.dataset.index)};
+  $('#homeBrandButton').onclick=()=>{activeCategory='All Commands';activeDifficulty='All Levels';activeCommandGroup='All Command Categories';query='';$('#search').value='';$('#categoryCommandSearch').value='';showHome()};
   $('#search').oninput=e=>{
     query=e.target.value.toLowerCase().trim();
     $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');setCrumb('HOME');
-    $$('#topics button').forEach(x=>x.classList.toggle('active',x.hasAttribute('data-home')));
     filter();
     if(query)requestAnimationFrame(()=>$('#topicGrid').scrollIntoView({block:'start'}));
     else window.scrollTo(0,0);
   };
   $('#search').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();closeMobilePanels();setMobileNav('search');$('#search').blur();requestAnimationFrame(()=>$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'}))}};
-  $('#categorySelect').onchange=e=>{activeCategory=e.target.value;renderSidebar();showHome();closeMobilePanels();setMobileNav('home')};
-  $('#contentSelect').onchange=e=>{sidebarContent=e.target.value;renderSidebar()};
+  $('#inlineDifficultySelect').onchange=e=>{activeDifficulty=e.target.value;filter()};
+  $('#commandGroupSelect').onchange=e=>{activeCommandGroup=e.target.value;filter()};
+  $('#categoryCommandSearch').oninput=e=>{query=e.target.value.toLowerCase().trim();$('#search').value=e.target.value;filter()};
+  $('#allCategoriesButton').onclick=()=>{activeCategory='All Commands';activeDifficulty='All Levels';activeCommandGroup='All Command Categories';query='';$('#search').value='';$('#categoryCommandSearch').value='';filter();window.scrollTo({top:$('#topicGrid').offsetTop-90,behavior:'smooth'})};
   document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('#search').focus()}if(e.key==='Escape'){$('#search').value='';query='';showHome()}});
   $('#browseCommandsButton').onclick=()=>{$('#search').focus();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})};
   $('#wslGuideButton').onclick=showWslGuide;$('#wslBackButton').onclick=showHome;$('#toolsBackButton').onclick=showHome;
   $('#toolsSetupMenu').onclick=e=>{const button=e.target.closest('[data-tools-platform]');if(button)showToolsGuide(button.dataset.toolsPlatform)};
-  $('#randomButton').onclick=()=>{const available=commands.filter(c=>activeCategory==='All Commands'||c.category===activeCategory);if(available.length){const target=available[Math.floor(Math.random()*available.length)];query=target.name.toLowerCase();$('#search').value=target.name;filter();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})}};$('#backButton').onclick=showHome;
+  $('#randomButton').onclick=()=>{const available=commands.filter(c=>(activeCategory==='All Commands'||c.category===activeCategory)&&matchesDifficulty(c));if(available.length){const target=available[Math.floor(Math.random()*available.length)];query=target.name.toLowerCase();$('#search').value=target.name;filter();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})}};$('#backButton').onclick=showHome;
   $('#prevButton').onclick=()=>{if(readerMode==='tutorial')return openTutorial(tutorialCurrent-1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position>0&&openTopic(sections.indexOf(list[position-1]))};
   $('#nextButton').onclick=()=>{if(readerMode==='tutorial')return tutorialCurrent===tutorials.length-1?showHome():openTutorial(tutorialCurrent+1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position===list.length-1?showHome():openTopic(sections.indexOf(list[position+1]))};
-  $('#menuButton').onclick=()=>document.body.classList.toggle('menu-open');
-  $('.mobile-nav').onclick=e=>{
-    const button=e.target.closest('[data-mobile-action]');if(!button)return;
-    const action=button.dataset.mobileAction;
-    if(action==='home'){closeMobilePanels();showHome();setMobileNav('home');return}
-    if(action==='search'){closeMobilePanels();setMobileNav('search');$('#search').focus();return}
-    document.body.classList.remove('mobile-search-open');document.body.classList.toggle('menu-open');setMobileNav(document.body.classList.contains('menu-open')?action:'home');
-    if(action==='categories'&&document.body.classList.contains('menu-open'))setTimeout(()=>$('#categorySelect').focus(),180);
-  };
-  $('.mobile-backdrop').onclick=()=>{closeMobilePanels();setMobileNav('home')};
   $('#themeButton').onclick=()=>{document.body.classList.toggle('light');state.theme=document.body.classList.contains('light')?'light':'dark';localStorage.setItem('forensics-theme',state.theme)};
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Command copied')}catch{toast('Select and copy the command manually')}}
