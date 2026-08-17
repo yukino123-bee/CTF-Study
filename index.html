@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>CTF Command Hub</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=22">
+  <link rel="stylesheet" href="assets/css/styles.css?v=35">
   <link rel="stylesheet" href="assets/css/outputs.css?v=2">
   <link rel="stylesheet" href="assets/css/tutorials.css?v=2">
 </head>
 <body>
+  <button id="coreCategoriesButton" class="side-page-arrow" type="button" aria-label="Open Forensics, General Skills, and Cryptography page" title="Open focused study page"><span>‹</span></button>
   <main>
     <header class="topbar">
       <button id="homeBrandButton" class="header-brand" type="button" aria-label="Return to CTF Command Hub home">
@@ -22,6 +23,8 @@
         <kbd>/</kbd>
       </label>
       <div class="topbar-actions">
+        <button id="commonCluesButton" class="topbar-guide" type="button"><span>◇</span> Common Clues</button>
+        <button id="combinationsGuideButton" class="topbar-guide" type="button"><span>⛓</span> Useful Combinations</button>
         <button id="wslGuideButton" class="topbar-guide" type="button"><span>⊞</span> WSL Setup</button>
         <details id="toolsSetupMenu" class="setup-menu">
           <summary><span>⚙</span> Tools Setup</summary>
@@ -98,17 +101,246 @@
       <div class="wsl-ready"><span>✓</span><div><h2>You are CTF-ready</h2><p>Open Ubuntu, move to your challenge folder under <code>/mnt/c</code>, and use the searchable commands in this hub.</p></div></div>
     </section>
 
+    <section id="coreCategoriesGuide" class="view tools-guide">
+      <button id="coreCategoriesBackButton" class="back">← Command hub</button>
+      <div class="core-page-layout">
+        <aside class="core-study-sidebar" aria-label="Core category navigation"><span>QUICK NAVIGATION</span><button class="active" type="button" data-core-workflow>1. Workflow</button><button type="button" data-core-file-clues>2. File Clues</button><span class="core-sidebar-group">FILE CLUE CATEGORIES</span><button class="core-sidebar-child" type="button" data-core-category="Forensics">Forensics</button><button class="core-sidebar-child" type="button" data-core-category="General Skills">General Skills</button><button class="core-sidebar-child" type="button" data-core-category="Cryptography">Cryptography</button></aside>
+        <div id="corePageOverview" class="core-page-content"><div class="tools-guide-hero"><p class="eyebrow">FOCUSED CTF STUDY PAGE</p><h1>Core categories</h1><h2>Forensics · General Skills · Cryptography</h2><p>Focus on the three foundational CTF categories, recognize common artifact formats, and choose the right first-response tools before deeper analysis.</p></div>
+          <div class="core-category-nav"><button type="button" data-core-category="Forensics"><span>01</span><b>Forensics</b><small>Evidence, captures, memory, media, and disk images</small></button><button type="button" data-core-category="General Skills"><span>02</span><b>General Skills</b><small>Text, archives, source code, binaries, and databases</small></button><button type="button" data-core-category="Cryptography"><span>03</span><b>Cryptography</b><small>Encrypted data, keys, certificates, signatures, and hashes</small></button></div>
+          <section id="coreWorkflow" class="core-workflow"><div class="combination-category-title"><div><span>START-TO-FINISH PROCESS</span><h2>CyberLab challenge workflow</h2></div><b>10 steps</b></div><div class="workflow-map-wrap"><pre class="workflow-map">CYBERLAB
+   │
+   ▼
+1. CHOOSE CATEGORY
+   │
+   ├── General Skills
+   ├── Forensics
+   └── Cryptography
+   │
+   ▼
+2. OPEN CHALLENGE
+   │
+   ▼
+3. READ EVERYTHING PROVIDED
+   │
+   ├── Title
+   ├── Description
+   ├── Hints
+   ├── Downloadable files
+   └── Connection command (if provided)
+   │
+   ▼
+4. IDENTIFY WHAT YOU RECEIVED
+   │
+   ├── Filename
+   ├── Extension
+   ├── Actual file type
+   └── File contents / structure
+   │
+   ▼
+5. BASIC RECONNAISSANCE
+   │
+   ├── ls -lah
+   ├── file &lt;file&gt;
+   ├── strings &lt;file&gt;
+   └── xxd &lt;file&gt; | head
+   │
+   ▼
+6. COMPARE RESULTS WITH CATEGORY
+   │
+   ▼
+7. CHOOSE CATEGORY-SPECIFIC WORKFLOW
+   │
+   ├──────────────┬──────────────────┐
+   ▼              ▼                  ▼
+GENERAL        FORENSICS          CRYPTO
+SKILLS
+   │              │                  │
+   ▼              ▼                  ▼
+Linux/         Metadata/          Identify
+Encoding/      Hidden data/       encoding,
+Shell          Filesystem/        cipher,
+               Network            hash, keys
+   │              │                  │
+   ▼              ▼                  ▼
+8. FOLLOW EACH NEW CLUE
+   │
+   ▼
+9. EXTRACT / DECODE / DECRYPT / SEARCH
+   │
+   ▼
+10. FLAG FOUND</pre></div></section>
+          <div id="coreArtifactClues"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="commonCluesGuide" class="view tools-guide">
+      <button id="commonCluesBackButton" class="back">← Command hub</button>
+      <div class="tools-guide-hero"><p class="eyebrow">CTF RECOGNITION GUIDE</p><h1>Common clues</h1><h2>Recognize common encodings, ciphers, tokens, and hashes</h2><p>Use these shapes as starting clues, not proof. Confirm a suspected format with context, structure, and an appropriate decoding or identification tool.</p></div>
+      <div class="combination-table-wrap clue-table-wrap"><table class="combination-table clue-table"><thead><tr><th>Type</th><th>Common clue / example format</th></tr></thead><tbody>
+        <tr><td><b>Base64</b></td><td><code>cGljb0NURntmbGFnfQ==</code></td></tr>
+        <tr><td><b>Base32</b></td><td><code>OBUWY===</code></td></tr>
+        <tr><td><b>Base16 / Hex</b></td><td><code>7069636f435446</code></td></tr>
+        <tr><td><b>Hex with spaces</b></td><td><code>70 69 63 6f 43 54 46</code></td></tr>
+        <tr><td><b>Hex escapes</b></td><td><code>\x70\x69\x63\x6f</code></td></tr>
+        <tr><td><b>Hex prefix</b></td><td><code>0x70 0x69 0x63 0x6f</code></td></tr>
+        <tr><td><b>Binary</b></td><td><code>01110000 01101001 01100011 01101111</code></td></tr>
+        <tr><td><b>Decimal ASCII</b></td><td><code>112 105 99 111</code></td></tr>
+        <tr><td><b>Octal ASCII</b></td><td><code>160 151 143 157</code></td></tr>
+        <tr><td><b>Octal escapes</b></td><td><code>\160\151\143\157</code></td></tr>
+        <tr><td><b>Unicode escapes</b></td><td><code>\u0070\u0069\u0063\u006f</code></td></tr>
+        <tr><td><b>Unicode code points</b></td><td><code>U+0070 U+0069 U+0063 U+006F</code></td></tr>
+        <tr><td><b>HTML decimal entities</b></td><td><code>&amp;#112;&amp;#105;&amp;#99;&amp;#111;</code></td></tr>
+        <tr><td><b>HTML hex entities</b></td><td><code>&amp;#x70;&amp;#x69;&amp;#x63;&amp;#x6f;</code></td></tr>
+        <tr><td><b>URL encoding</b></td><td><code>%70%69%63%6F%43%54%46</code></td></tr>
+        <tr><td><b>ROT13</b></td><td><code>cvpbPGS{...}</code></td></tr>
+        <tr><td><b>Caesar cipher</b></td><td><code>slfrFWI{...}</code></td></tr>
+        <tr><td><b>Atbash</b></td><td><code>krxlXGU{...}</code></td></tr>
+        <tr><td><b>Reverse text</b></td><td><code>}galf{FTCocip</code></td></tr>
+        <tr><td><b>XOR</b></td><td>Often hex/raw bytes plus a key hint, such as <code>1b0c0a...</code></td></tr>
+        <tr><td><b>Single-byte XOR</b></td><td>Hex or random-looking bytes; the challenge may hint at a one-byte key</td></tr>
+        <tr><td><b>Repeating-key XOR</b></td><td>Random-looking bytes plus a repeating or multi-character key</td></tr>
+        <tr><td><b>Base85 / ASCII85</b></td><td><code>BOu!rD]j7BEbo7</code></td></tr>
+        <tr><td><b>Morse code</b></td><td><code>.--. .. -.-. ---</code></td></tr>
+        <tr><td><b>Bacon cipher</b></td><td><code>AABBA ABBAB AAAAA...</code></td></tr>
+        <tr><td><b>Vigenère</b></td><td>Alphabetic ciphertext plus a keyword or key hint</td></tr>
+        <tr><td><b>Rail Fence</b></td><td>Normal letters rearranged or transposed</td></tr>
+        <tr><td><b>ROT47</b></td><td>Letters, numbers, and punctuation appear scrambled</td></tr>
+        <tr><td><b>JWT</b></td><td><code>xxxxx.yyyyy.zzzzz</code> — three Base64URL-like sections</td></tr>
+        <tr><td><b>Base64URL</b></td><td>Similar to Base64 but commonly uses <code>-</code> and <code>_</code></td></tr>
+        <tr><td><b>PEM/Base64 certificate</b></td><td><code>-----BEGIN CERTIFICATE-----</code></td></tr>
+        <tr><td><b>Hashes</b></td><td>A fixed-length hexadecimal-looking string</td></tr>
+        <tr><td><b>MD5 hash</b></td><td><code>5d41402abc4b2a76b9719d911017c592</code> — 32 hex characters</td></tr>
+        <tr><td><b>SHA-1 hash</b></td><td>Usually <b>40 hexadecimal characters</b></td></tr>
+        <tr><td><b>SHA-256 hash</b></td><td>Usually <b>64 hexadecimal characters</b></td></tr>
+        <tr><td><b>SHA-512 hash</b></td><td>Usually <b>128 hexadecimal characters</b></td></tr>
+      </tbody></table></div>
+      <div id="artifactCluesContent"><div class="combination-category-title clue-section-title"><div><span>FILE AND ARTIFACT CLUES</span><h2>Extensions and first-response tools</h2></div><b>58 common patterns</b></div>
+      <div class="clue-subcategory-title" data-artifact-category="Forensics"><span>CTF CATEGORY</span><h3>Forensics</h3></div>
+      <div class="combination-table-wrap clue-table-wrap"><table class="combination-table artifact-clue-table"><thead><tr><th>Extension / Pattern</th><th>Usually means</th><th>First tools/commands to try</th></tr></thead><tbody>
+        <tr><td><code>.raw</code></td><td>Raw data, disk image, or memory image</td><td><code>file</code>, <code>xxd</code>, forensic tools</td></tr>
+        <tr><td><code>.dump</code> / <code>.dmp</code></td><td>Memory or process dump</td><td><code>file</code>, <code>strings</code>, Volatility</td></tr>
+        <tr><td><code>.mem</code></td><td>Memory dump</td><td>Volatility, <code>strings</code></td></tr>
+        <tr><td><code>.img</code></td><td>Disk or filesystem image</td><td><code>file</code>, <code>fdisk</code>, Sleuth Kit</td></tr>
+        <tr><td><code>.dd</code></td><td>Raw disk image</td><td><code>file</code>, <code>fdisk</code>, Sleuth Kit</td></tr>
+        <tr><td><code>.iso</code></td><td>Optical disk image</td><td><code>file</code>, <code>7z</code>, <code>mount</code></td></tr>
+        <tr><td><code>.pcap</code></td><td>Network capture</td><td>Wireshark, <code>tshark</code></td></tr>
+        <tr><td><code>.pcapng</code></td><td>Network capture</td><td>Wireshark, <code>tshark</code></td></tr>
+        <tr><td><code>.jpg</code> / <code>.jpeg</code></td><td>Image; possible metadata or steganography</td><td><code>exiftool</code>, <code>strings</code>, <code>binwalk</code>, <code>steghide</code></td></tr>
+        <tr><td><code>.png</code></td><td>Image; common steganography target</td><td><code>exiftool</code>, <code>pngcheck</code>, <code>zsteg</code>, <code>binwalk</code></td></tr>
+        <tr><td><code>.bmp</code></td><td>Bitmap; common steganography target</td><td><code>zsteg</code>, <code>exiftool</code>, <code>binwalk</code></td></tr>
+        <tr><td><code>.gif</code></td><td>Animated image or multiple frames</td><td><code>exiftool</code>, <code>strings</code>, frame extraction</td></tr>
+        <tr><td><code>.wav</code></td><td>Audio; possible hidden data</td><td><code>file</code>, <code>exiftool</code>, spectrogram tools</td></tr>
+        <tr><td><code>.mp3</code></td><td>Audio with possible metadata clues</td><td><code>exiftool</code>, <code>strings</code></td></tr>
+        <tr><td><code>.docx</code></td><td>Office document and ZIP container</td><td><code>file</code>, <code>unzip</code>, <code>exiftool</code></td></tr>
+        <tr><td><code>.xlsx</code></td><td>Excel document and ZIP container</td><td><code>file</code>, <code>unzip</code>, <code>exiftool</code></td></tr>
+        <tr><td><code>.pdf</code></td><td>PDF, possibly containing embedded objects</td><td><code>pdfinfo</code>, <code>pdftotext</code>, <code>exiftool</code>, <code>binwalk</code></td></tr>
+      </tbody></table></div>
+      <div class="clue-subcategory-title" data-artifact-category="General Skills"><span>CTF CATEGORY</span><h3>General Skills</h3></div>
+      <div class="combination-table-wrap clue-table-wrap"><table class="combination-table artifact-clue-table"><thead><tr><th>Extension / Pattern</th><th>Usually means</th><th>First tools/commands to try</th></tr></thead><tbody>
+        <tr><td><code>.txt</code></td><td>Plain text, encoded text, or clues</td><td><code>cat</code>, <code>less</code>, <code>grep</code>, <code>strings</code></td></tr>
+        <tr><td><code>.log</code></td><td>Logs or activity records</td><td><code>less</code>, <code>grep</code>, <code>awk</code></td></tr>
+        <tr><td><code>.csv</code></td><td>Structured text or tabular data</td><td><code>column</code>, <code>grep</code>, Python</td></tr>
+        <tr><td><code>.json</code></td><td>Structured JSON data</td><td><code>jq</code>, <code>grep</code></td></tr>
+        <tr><td><code>.xml</code></td><td>Structured XML data</td><td><code>less</code>, <code>grep</code>, <code>xmllint</code></td></tr>
+        <tr><td><code>.html</code> / <code>.htm</code></td><td>HTML or source clues</td><td><code>grep</code>, <code>curl</code>, browser</td></tr>
+        <tr><td><code>.bin</code></td><td>Raw binary data</td><td><code>file</code>, <code>xxd</code>, <code>strings</code>, <code>binwalk</code></td></tr>
+        <tr><td><code>.dat</code></td><td>Generic or raw data</td><td><code>file</code>, <code>xxd</code>, <code>strings</code></td></tr>
+        <tr><td><code>.zip</code></td><td>ZIP archive</td><td><code>unzip</code>, <code>zipinfo</code>, <code>7z</code></td></tr>
+        <tr><td><code>.tar</code></td><td>TAR archive</td><td><code>tar</code></td></tr>
+        <tr><td><code>.gz</code></td><td>Gzip-compressed file</td><td><code>gzip</code>, <code>gunzip</code></td></tr>
+        <tr><td><code>.bz2</code></td><td>Bzip2-compressed file</td><td><code>bunzip2</code></td></tr>
+        <tr><td><code>.xz</code></td><td>XZ-compressed file</td><td><code>unxz</code>, <code>xz</code></td></tr>
+        <tr><td><code>.7z</code></td><td>7-Zip archive</td><td><code>7z</code></td></tr>
+        <tr><td><code>.rar</code></td><td>RAR archive</td><td><code>unrar</code>, <code>7z</code></td></tr>
+        <tr><td><code>.py</code></td><td>Python source code</td><td><code>less</code>, <code>grep</code>, Python</td></tr>
+        <tr><td><code>.sh</code></td><td>Shell script</td><td><code>less</code>, <code>bash</code></td></tr>
+        <tr><td><code>.c</code> / <code>.cpp</code></td><td>C or C++ source code</td><td><code>less</code>, compiler</td></tr>
+        <tr><td><code>.class</code></td><td>Compiled Java bytecode</td><td><code>file</code>, <code>javap</code></td></tr>
+        <tr><td><code>.jar</code></td><td>Java archive or application</td><td><code>file</code>, <code>unzip</code>, Java tools</td></tr>
+        <tr><td><code>.exe</code></td><td>Windows executable</td><td><code>file</code>, <code>strings</code>, PE-analysis tools</td></tr>
+        <tr><td><code>.dll</code></td><td>Windows dynamic library</td><td><code>file</code>, <code>strings</code></td></tr>
+        <tr><td><code>.elf</code> or no extension</td><td>Possible Linux executable</td><td><code>file</code>, <code>strings</code>, <code>readelf</code></td></tr>
+        <tr><td><code>.db</code> / <code>.sqlite</code> / <code>.sqlite3</code></td><td>SQLite database</td><td><code>sqlite3</code></td></tr>
+        <tr><td><code>.sql</code></td><td>SQL or database dump</td><td><code>less</code>, <code>grep</code></td></tr>
+      </tbody></table></div>
+      <div class="clue-subcategory-title" data-artifact-category="Cryptography"><span>CTF CATEGORY</span><h3>Cryptography</h3></div>
+      <div class="combination-table-wrap clue-table-wrap"><table class="combination-table artifact-clue-table"><thead><tr><th>Extension / Pattern</th><th>Usually means</th><th>First tools/commands to try</th></tr></thead><tbody>
+        <tr><td><code>.enc</code></td><td>Encrypted data</td><td><code>file</code>, <code>xxd</code>, <code>strings</code>; identify the algorithm</td></tr>
+        <tr><td><code>.encrypted</code></td><td>Likely encrypted data</td><td>Same initial checks as <code>.enc</code></td></tr>
+        <tr><td><code>.cipher</code></td><td>Ciphertext</td><td><code>file</code>, <code>xxd</code>, Python</td></tr>
+        <tr><td><code>.aes</code></td><td>Possibly AES-encrypted data</td><td>OpenSSL; determine container, mode, key, and IV format</td></tr>
+        <tr><td><code>.gpg</code> / <code>.pgp</code></td><td>OpenPGP encrypted or signed data</td><td><code>gpg</code></td></tr>
+        <tr><td><code>.pem</code></td><td>PEM-encoded cryptographic material</td><td><code>openssl</code></td></tr>
+        <tr><td><code>.key</code></td><td>Cryptographic or private key</td><td><code>file</code>, <code>openssl</code></td></tr>
+        <tr><td><code>.pub</code></td><td>Usually a public key</td><td><code>ssh-keygen</code> or <code>openssl</code>, depending on format</td></tr>
+        <tr><td><code>.crt</code> / <code>.cer</code></td><td>Certificate</td><td><code>openssl x509</code></td></tr>
+        <tr><td><code>.csr</code></td><td>Certificate signing request</td><td><code>openssl req</code></td></tr>
+        <tr><td><code>.der</code></td><td>DER binary certificate or key</td><td><code>openssl</code>, <code>file</code></td></tr>
+        <tr><td><code>.p12</code> / <code>.pfx</code></td><td>PKCS#12 key and certificate bundle</td><td><code>openssl pkcs12</code></td></tr>
+        <tr><td><code>.sig</code></td><td>Digital signature</td><td>Identify the signature format and corresponding verification tool</td></tr>
+        <tr><td><code>.hash</code></td><td>Hash or digest data</td><td><code>cat</code>, <code>hashid</code>, Hashcat</td></tr>
+        <tr><td><code>.md5</code></td><td>MD5 hashes or checksums</td><td><code>cat</code>, <code>md5sum</code>, Hashcat</td></tr>
+        <tr><td><code>.sha1</code> / <code>.sha256</code></td><td>SHA hashes or checksums</td><td><code>cat</code>, <code>sha1sum</code>, <code>sha256sum</code>, Hashcat</td></tr>
+      </tbody></table></div></div>
+      <div class="combination-category-title clue-section-title"><div><span>WEB EXPLOITATION CLUES</span><h2>Vulnerabilities and techniques</h2></div><b>26 common clues</b></div>
+      <div class="combination-table-wrap clue-table-wrap"><table class="combination-table web-clue-table"><thead><tr><th>Vulnerability / Technique</th><th>Common CTF clue</th><th>Concrete example</th></tr></thead><tbody>
+        <tr><td><b>View Source</b></td><td>Flag or hint hidden in HTML comments, markup, or inline JavaScript</td><td><code>&lt;!-- TODO: remove /secret-stage/ --&gt;</code></td></tr>
+        <tr><td><b>JavaScript Inspection</b></td><td>Static scripts contain hardcoded paths, credentials, or API endpoints</td><td><code>/static/app.js</code> contains <code>const api = "/api/v1/admin";</code></td></tr>
+        <tr><td><b>robots.txt</b></td><td>The crawler policy reveals paths not linked by the website</td><td><code>User-agent: *&#10;Disallow: /backup-panel/</code></td></tr>
+        <tr><td><b>Hidden files</b></td><td>Dotfiles, repositories, backups, or configuration files are web-accessible</td><td><code>/.env</code>, <code>/.git/HEAD</code>, <code>/config.php.bak</code></td></tr>
+        <tr><td><b>Directory discovery</b></td><td>Unlinked paths return meaningful status codes or different response sizes</td><td><code>/admin</code>, <code>/backup</code>, <code>/uploads</code>, <code>/secret</code></td></tr>
+        <tr><td><b>GET parameter manipulation</b></td><td>A URL parameter appears to control identity, role, or displayed data</td><td><code>/dashboard?user=guest&amp;admin=false</code></td></tr>
+        <tr><td><b>POST manipulation</b></td><td>Hidden form fields or request-body values control sensitive behavior</td><td><code>username=alex&amp;role=user</code> in the submitted body</td></tr>
+        <tr><td><b>Cookie manipulation</b></td><td>A readable client cookie appears to store trust or authorization state</td><td><code>Cookie: role=user; logged_in=0</code></td></tr>
+        <tr><td><b>IDOR</b></td><td>Changing an object identifier returns another user's object without an ownership check</td><td><code>/profile?id=100</code> and <code>/profile?id=101</code> return different profiles</td></tr>
+        <tr><td><b>SQL Injection</b></td><td>Input seems directly connected to a database query and produces database-style errors or behavior</td><td><code>/item?id=7</code> returns a SQL syntax error after an unexpected quote</td></tr>
+        <tr><td><b>XSS</b></td><td>User-controlled text is returned into HTML without correct output encoding</td><td>A harmless test such as <code>&lt;b&gt;test&lt;/b&gt;</code> is rendered as markup</td></tr>
+        <tr><td><b>Command Injection</b></td><td>Application input appears in operating-system command output or error messages</td><td>A host lookup feature returns a shell error containing the submitted value</td></tr>
+        <tr><td><b>Path Traversal</b></td><td>A filename parameter accepts directory separators or parent-directory sequences</td><td><code>/download?file=../notes.txt</code> reaches outside the intended folder in a lab</td></tr>
+        <tr><td><b>LFI</b></td><td>A page/include parameter loads local server-side files</td><td><code>/index.php?page=home.php</code> changes which local template is included</td></tr>
+        <tr><td><b>File Upload</b></td><td>The server accepts user-controlled files and may trust extension, MIME type, or filename</td><td>An uploaded <code>avatar.svg</code> is served directly from <code>/uploads/</code></td></tr>
+        <tr><td><b>Authentication flaw</b></td><td>Login, password reset, or session logic relies on weak or predictable state</td><td>A reset link remains valid after use, or changing accounts keeps the old session role</td></tr>
+        <tr><td><b>JWT</b></td><td>A token has three dot-separated Base64URL-like sections</td><td><code>eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoidXNlciJ9.signature</code></td></tr>
+        <tr><td><b>Base64 cookie</b></td><td>A cookie decodes into readable identity or role information</td><td><code>dXNlcj1ndWVzdA==</code> decodes to <code>user=guest</code></td></tr>
+        <tr><td><b>SSTI</b></td><td>Server-side template syntax is evaluated instead of displayed literally</td><td><code>{{7*7}}</code> appears as <code>49</code> in a deliberately vulnerable lab</td></tr>
+        <tr><td><b>Open Redirect</b></td><td>A navigation parameter accepts an external destination without validation</td><td><code>/login?next=https://example.test/landing</code></td></tr>
+        <tr><td><b>API exploitation</b></td><td>JSON endpoints expose objects, methods, or fields beyond the visible interface</td><td><code>GET /api/v1/users/42</code> returns a structured user object</td></tr>
+        <tr><td><b>CORS issue</b></td><td>The server reflects arbitrary origins or combines broad origins with credentials</td><td><code>Origin: https://lab-client.test</code> is copied into <code>Access-Control-Allow-Origin</code></td></tr>
+        <tr><td><b>HTTP method issue</b></td><td>Authorization or routing differs unexpectedly between HTTP methods</td><td><code>GET /api/item/7</code> is blocked while <code>PUT /api/item/7</code> is accepted</td></tr>
+        <tr><td><b>Header-based challenge</b></td><td>The response changes based on client-controlled request headers</td><td><code>User-Agent: CTFBrowser</code>, <code>Referer: /admin</code>, or <code>X-Forwarded-For: 127.0.0.1</code></td></tr>
+        <tr><td><b>Client-side authorization</b></td><td>JavaScript hides controls or redirects users without server-side enforcement</td><td><code>if (user.role !== "admin") adminPanel.remove()</code></td></tr>
+        <tr><td><b>Source/config disclosure</b></td><td>Source code, backups, environment data, or configuration is returned as plain text</td><td><code>/index.php~</code>, <code>/app.py.bak</code>, or a downloadable <code>config.json</code></td></tr>
+      </tbody></table></div>
+      <div class="reference-notice"><b>Important:</b> These patterns are clues, not proof. Validate encoding formats before decoding, and test web behaviors only in CTF labs or systems where you have explicit authorization.</div>
+    </section>
+
+    <section id="combinationsGuide" class="view tools-guide">
+      <button id="combinationsBackButton" class="back">← Command hub</button>
+      <div class="tools-guide-hero"><p class="eyebrow">CTF WORKFLOWS · COPY-READY</p><h1>Useful command combinations</h1><h2>Turn individual commands into repeatable workflows</h2><p>Use these combinations on copied challenge files or authorized targets. Read each pipeline from left to right and replace the example names with your own paths.</p></div>
+      <div class="combination-controls"><label><span>Combination category</span><select id="combinationCategorySelect"></select></label><label><span>Search combinations</span><div class="combination-search"><b>⌕</b><input id="combinationSearch" type="search" placeholder="Search purpose, command, or meaning…" autocomplete="off"></div></label></div>
+      <div id="combinationTables"></div>
+      <div class="reference-notice"><b>Remember:</b> A pipe sends one command's output into the next command. <code>&amp;&amp;</code> continues only after success, <code>&gt;</code> replaces a file, and <code>&gt;&gt;</code> appends to it.</div>
+    </section>
+
     <section id="toolsGuide" class="view tools-guide">
       <button id="toolsBackButton" class="back">← Command hub</button>
       <div id="toolsGuideBody"></div>
     </section>
   </main>
 
+  <dialog id="coreAccessDialog" class="access-dialog">
+    <form id="coreAccessForm" method="dialog">
+      <label class="visually-hidden" for="coreAccessCode">Access code</label>
+      <div class="access-code-row"><input id="coreAccessCode" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" autocomplete="off" required><button class="access-code-submit" type="submit" aria-label="Submit code">→</button></div>
+      <p id="coreAccessError" class="access-dialog-error" role="alert"></p>
+    </form>
+  </dialog>
   <div id="toast" role="status"></div>
   <script src="assets/js/outputs.js?v=1"></script>
   <script src="assets/js/tutorials.js?v=1"></script>
   <script src="data/curriculum.js?v=2"></script>
-  <script src="data/reference-guides.js?v=1"></script>
-  <script src="assets/js/app.js?v=34"></script>
+  <script src="data/reference-guides.js?v=3"></script>
+  <script src="assets/js/app.js?v=45"></script>
 </body>
 </html>

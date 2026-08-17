@@ -68,7 +68,7 @@ function commandGroupFor(category,name,command='',use=''){
     if(has(/dig|nslookup|host|dns/))return 'DNS';
     if(has(/wireshark|tshark|tcpdump|pcap|packet/))return 'Packet Analysis';
     if(has(/nmap|port|service|scan/))return 'Host & Service Discovery';
-    if(has(/nc|netcat|curl|wget|ssh|transfer|socket/))return 'Connections & Transfer';
+    if(has(/nc|netcat|curl|wget|ssh|scp|ss|transfer|socket|connection/))return 'Connections & Transfer';
     return 'Network Utilities';
   }
   if(category==='Reverse Engineering'){
@@ -84,6 +84,10 @@ function commandGroupFor(category,name,command='',use=''){
     if(has(/pwntools|python|socket|pack|unpack/))return 'Exploit Scripting';
     return 'Memory Exploitation';
   }
+  if(has(/ps |kill|process/))return 'Processes';
+  if(has(/pipes|redirection|bash|program|shell/))return 'Shell Execution & Operators';
+  if(has(/md5|sha1|sha256|hash/))return 'Hashing';
+  if(has(/xxd|hexdump|hex|byte/))return 'Bytes & Hex';
   if(has(/python|pip|subprocess|hashlib/))return 'Python & Scripting';
   if(has(/grep| rg |awk|cut|sed|sort|head|tail|cat|less/))return 'Text Processing';
   if(has(/zip|unzip|tar|gzip|archive|7z/))return 'Archives & Compression';
@@ -109,6 +113,65 @@ const toolSetupGuides={
     {title:'Use Windows GUI tools alongside WSL',description:'Install Burp Suite, Wireshark, Ghidra, VS Code, and 7-Zip in Windows. Access Windows challenge files from WSL through /mnt/c.',command:'cd /mnt/c/Users'},
     {title:'Confirm the setup',description:'Check several representative tools inside WSL.',command:'file --version && python3 --version && nmap --version && unzip -v'}
   ],note:'WSL is suitable for ordinary CTF commands, but native Windows Wireshark/Npcap is better for packet capture. Wi-Fi monitor mode and direct hardware access remain limited.'}
+};
+const commandCombinationCategories={
+  'Grep & Content Search':[
+    ['Basic search','grep "flag" file.txt','Find flag inside a file'],
+    ['Ignore case','grep -i "flag" file.txt','Match flag, FLAG, Flag, and other letter cases'],
+    ['Show line number','grep -n "flag" file.txt','Show the line where the match occurs'],
+    ['Recursive search','grep -R "flag" .','Search all files and subdirectories'],
+    ['Recursive + ignore case','grep -Ri "flag" .','Search recursively while ignoring case'],
+    ['Recursive + line numbers','grep -Rn "flag" .','Search recursively and show line numbers'],
+    ['CTF combination','grep -Rni "picoCTF{" .','Recursive search with line numbers and case ignored'],
+    ['Matching filenames only','grep -Rl "flag" .','Show only filenames containing a match'],
+    ['Exclude matching lines','grep -v "ERROR" file.txt','Show lines that do not contain ERROR'],
+    ['Whole-word match','grep -w "flag" file.txt','Match flag but not flagged'],
+    ['Count matching lines','grep -c "flag" file.txt','Count lines containing the match'],
+    ['Lines after match','grep -A 3 "flag" file.txt','Show the match and three lines after it'],
+    ['Lines before match','grep -B 3 "flag" file.txt','Show three lines before the match'],
+    ['Lines around match','grep -C 3 "flag" file.txt','Show three lines before and after the match'],
+    ['Multiple patterns','grep -E "flag|password|secret" file.txt','Search for several alternatives'],
+    ['Literal/fixed search','grep -F "picoCTF{" file.txt','Treat the search text literally'],
+    ['Search binary strings','strings program | grep -i "flag"','Extract readable strings, then search them'],
+    ['Search command output','some_command | grep "flag"','Filter another command\'s output']
+  ],
+  'File Triage & Discovery':[
+    ['Identify and hash','file challenge.bin && stat challenge.bin && sha256sum challenge.bin','Identify the file, inspect metadata, and record its hash'],
+    ['Find files by name','find . -type f -iname "*flag*"','Find filenames containing flag without case sensitivity'],
+    ['Find recently modified files','find . -type f -mmin -30 -ls','List files modified during the last 30 minutes'],
+    ['Find and identify every file','find . -type f -exec file {} +','Run file identification across a directory tree'],
+    ['Largest files first','find . -type f -printf "%s %p\n" | sort -nr | head','Show the largest files in the current tree'],
+    ['Hash every file','find . -type f -print0 | sort -z | xargs -0 sha256sum','Create a stable SHA-256 inventory of files']
+  ],
+  'Binary & Encoding':[
+    ['Unique readable strings','strings -a -n 6 challenge.bin | sort -u | head -n 50','Extract, deduplicate, and preview readable strings'],
+    ['Search binary for clues','strings -a challenge.bin | grep -Ei "flag|pass|key|secret"','Search extracted strings for common CTF clues'],
+    ['Inspect first bytes','file challenge.bin && xxd -l 64 challenge.bin','Identify a file and inspect its first 64 bytes'],
+    ['Decode Base64 safely','base64 -d encoded.txt > decoded.bin && file decoded.bin','Decode into a file and identify the result'],
+    ['Decode hex safely','xxd -r -p encoded.hex > decoded.bin && file decoded.bin','Convert hexadecimal text into bytes and identify them'],
+    ['Base64 then hex','base64 -d encoded.txt | xxd -r -p > decoded.bin','Apply two decoding layers from left to right']
+  ],
+  'Archives & Compression':[
+    ['Inspect ZIP before extraction','unzip -l challenge.zip && unzip -t challenge.zip','List ZIP members and test archive integrity'],
+    ['Extract ZIP into new folder','mkdir -p extracted && unzip challenge.zip -d extracted','Avoid mixing extracted files with the working directory'],
+    ['Inspect tar archive','tar -tvf challenge.tar | less','Review archive paths and metadata before extraction'],
+    ['Extract tar into new folder','mkdir -p extracted && tar -xf challenge.tar -C extracted','Extract a tar archive into a controlled directory'],
+    ['Decompress and identify gzip','gzip -cd evidence.gz > evidence.bin && file evidence.bin','Preserve the gzip input and identify the decompressed bytes']
+  ],
+  'Text Processing':[
+    ['Count repeated values','sort indicators.txt | uniq -c | sort -nr | head','Show the most frequent values first'],
+    ['Extract a column','cut -d, -f2 results.csv | sort -u','Extract the second CSV field and remove duplicates'],
+    ['Normalize to lowercase','tr "A-Z" "a-z" < words.txt | sort -u','Normalize case before deduplication'],
+    ['Count search results','grep -Ril "flag" . | wc -l','Count files containing a case-insensitive match'],
+    ['Save and preview output','some_command | tee results.txt | head','Save output while also previewing its first lines']
+  ],
+  'Networking & Downloads':[
+    ['Check listening ports','ss -lntup | sort -k5','Show listening sockets and their owning processes'],
+    ['Discover services','nmap -sV -p- challenge.example | tee nmap.txt','Scan authorized ports and save the results'],
+    ['Resolve and connect','dig +short challenge.example && nc challenge.example 31337','Resolve a host and connect to a supplied challenge port'],
+    ['Download and verify','curl -fLO https://example.com/challenge.bin && file challenge.bin && sha256sum challenge.bin','Download, identify, and hash an artifact'],
+    ['Download over SSH','scp -P 2222 player@challenge.example:challenge.bin . && sha256sum challenge.bin','Copy an authorized remote file and hash the local copy']
+  ]
 };
 const state={theme:localStorage.getItem('forensics-theme')||'dark'};
 const webExploitationTopics=[
@@ -292,7 +355,7 @@ function filter(){
 function openTopic(i){
   readerMode='topic';
   current=Math.max(0,Math.min(i,sections.length-1)); const s=sections[current];
-  $('#home').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#reader').classList.add('active');
+  $('#home').classList.remove('active');$('#wslGuide').classList.remove('active');$('#coreCategoriesGuide').classList.remove('active');$('#commonCluesGuide').classList.remove('active');$('#combinationsGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`TOPIC ${String(s.num).padStart(2,'0')} · ${s.tools}`;
   $('#readerTitle').textContent=s.title;setCrumb(s.title);
   $('#readerBody').innerHTML=s.lesson?formatLesson(s):s.entries?formatReferenceEntries(s.entries):format(s.lines);updateTopicNavigation();
@@ -332,7 +395,7 @@ function formatWebInspectionGuide(){
 }
 function openTutorial(i){
   readerMode='tutorial';tutorialCurrent=Math.max(0,Math.min(i,tutorials.length-1));const t=tutorials[tutorialCurrent];
-  $('#home').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#reader').classList.add('active');
+  $('#home').classList.remove('active');$('#wslGuide').classList.remove('active');$('#coreCategoriesGuide').classList.remove('active');$('#commonCluesGuide').classList.remove('active');$('#combinationsGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#reader').classList.add('active');
   $('#readerNumber').textContent=`HANDS-ON LAB ${String(tutorialCurrent+1).padStart(2,'0')} · ${t.level.toUpperCase()}`;
   $('#readerTitle').textContent=t.name;setCrumb(`TUTORIAL / ${t.name}`);
   $('#readerBody').innerHTML=`<div class="tutorial-intro"><b>Used for</b><p>${esc(t.use)}</p><b>Before you begin</b><p>${esc(t.setup)}</p><div class="output-warning">Outputs below are realistic training examples. Your filenames, hashes, timestamps, counts, offsets, addresses, and versions will differ.</div></div>`+t.steps.map((s,n)=>`<article class="tutorial-step"><div class="step-number">${n+1}</div><div><h3>${esc(s[0])}</h3><p class="interpret"><b>Description:</b> ${esc(s[3])}</p><p class="command-label"><b>Command:</b></p><div class="command" data-command="${attr(s[1])}">${esc(s[1])}<button class="copy" title="Copy command only">Copy</button></div><div class="sample-output"><span>ACTUAL-STYLE SAMPLE OUTPUT</span><pre>${esc(s[2])}</pre></div></div></article>`).join('');
@@ -359,22 +422,64 @@ function formatReferenceEntries(entries){
   }).join('');
 }
 function showHome(){
-  $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');setCrumb('HOME');
+  $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#coreCategoriesGuide').classList.remove('active');$('#commonCluesGuide').classList.remove('active');$('#combinationsGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');$('#coreCategoriesButton').hidden=false;setCrumb('HOME');
   filter();window.scrollTo(0,0);
 }
 function showWslGuide(){
-  closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#wslGuide').classList.add('active');setCrumb('WSL SETUP');
+  closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#coreCategoriesGuide').classList.remove('active');$('#commonCluesGuide').classList.remove('active');$('#combinationsGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#wslGuide').classList.add('active');setCrumb('WSL SETUP');
   $$('#wslGuide .copy').forEach(button=>button.onclick=()=>copyText(button.parentElement.dataset.command));
   window.scrollTo(0,0);setMobileNav('home');
 }
+function renderCombinationTables(){
+  const selected=$('#combinationCategorySelect').value||'All Categories',needle=searchable($('#combinationSearch').value);
+  const html=Object.entries(commandCombinationCategories).filter(([category])=>selected==='All Categories'||category===selected).map(([category,rows])=>{
+    const matches=rows.filter(row=>!needle||searchable(row.join(' ')).includes(needle));
+    if(!matches.length)return '';
+    return `<section class="combination-category"><div class="combination-category-title"><div><span>COMMAND COMBINATION CATEGORY</span><h2>${esc(category)}</h2></div><b>${matches.length} combination${matches.length!==1?'s':''}</b></div><div class="combination-table-wrap"><table class="combination-table"><thead><tr><th>Purpose</th><th>Command</th><th>Meaning</th></tr></thead><tbody>${matches.map(([purpose,command,meaning])=>`<tr><td>${esc(purpose)}</td><td><code>${esc(command)}</code><button class="combination-copy" data-combination-command="${attr(command)}" title="Copy command">Copy</button></td><td>${esc(meaning)}</td></tr>`).join('')}</tbody></table></div></section>`;
+  }).join('');
+  $('#combinationTables').innerHTML=html||'<div class="empty">No matching command combinations.</div>';
+  $$('.combination-copy').forEach(button=>button.onclick=()=>copyText(button.dataset.combinationCommand));
+}
+function showCoreCategoriesGuide(){
+  closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#commonCluesGuide').classList.remove('active');$('#combinationsGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#coreCategoriesGuide').classList.add('active');$('#coreCategoriesButton').hidden=true;setCrumb('CORE CATEGORIES');
+  if(!$('#coreArtifactClues').children.length)$('#coreArtifactClues').innerHTML=$('#artifactCluesContent').innerHTML;
+  showCorePanel('workflow');
+  window.scrollTo(0,0);
+}
+function showCorePanel(panel,category=''){
+  const artifact=$('#coreArtifactClues'),workflow=$('#coreWorkflow');
+  $('.core-page-content>.tools-guide-hero').hidden=true;$('.core-category-nav').hidden=true;
+  workflow.hidden=panel!=='workflow';artifact.hidden=!['file-clues','category'].includes(panel);
+  if(!artifact.hidden){
+    const title=artifact.querySelector('.combination-category-title');if(title)title.hidden=panel==='category';
+    artifact.querySelectorAll('[data-artifact-category]').forEach(heading=>{const visible=panel==='file-clues'||heading.dataset.artifactCategory===category;heading.hidden=!visible;if(heading.nextElementSibling)heading.nextElementSibling.hidden=!visible});
+  }
+  $$('.core-study-sidebar button').forEach(item=>item.classList.toggle('active',panel==='workflow'?item.hasAttribute('data-core-workflow'):panel==='file-clues'?item.hasAttribute('data-core-file-clues'):item.dataset.coreCategory===category));
+  $('#corePageOverview').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function requestCoreCategoriesAccess(){
+  $('#coreAccessCode').value='';$('#coreAccessError').textContent='';$('#coreAccessDialog').showModal();
+  requestAnimationFrame(()=>$('#coreAccessCode').focus());
+}
+function closeCoreAccessDialog(){$('#coreAccessDialog').close();$('#coreAccessError').textContent=''}
+function showCommonCluesGuide(){
+  closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#coreCategoriesGuide').classList.remove('active');$('#combinationsGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#commonCluesGuide').classList.add('active');setCrumb('COMMON CLUES');
+  window.scrollTo(0,0);
+}
+function showCombinationsGuide(){
+  closeMobilePanels();$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#coreCategoriesGuide').classList.remove('active');$('#commonCluesGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#combinationsGuide').classList.add('active');setCrumb('USEFUL COMBINATIONS');
+  if(!$('#combinationCategorySelect').options.length)$('#combinationCategorySelect').innerHTML=['All Categories',...Object.keys(commandCombinationCategories)].map(category=>`<option value="${attr(category)}">${esc(category)}</option>`).join('');
+  renderCombinationTables();
+  window.scrollTo(0,0);
+}
 function showToolsGuide(platform){
   const guide=toolSetupGuides[platform];if(!guide)return;
-  closeMobilePanels();$('#toolsSetupMenu').open=false;$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.add('active');setCrumb(`TOOLS / ${guide.label.toUpperCase()}`);
+  closeMobilePanels();$('#toolsSetupMenu').open=false;$('#home').classList.remove('active');$('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#coreCategoriesGuide').classList.remove('active');$('#commonCluesGuide').classList.remove('active');$('#combinationsGuide').classList.remove('active');$('#toolsGuide').classList.add('active');setCrumb(`TOOLS / ${guide.label.toUpperCase()}`);
   $('#toolsGuideBody').innerHTML=`<div class="tools-guide-hero"><p class="eyebrow">TOOLS SETUP · ${esc(guide.label.toUpperCase())}</p><h1>${esc(guide.label)} CTF setup</h1><h2>${esc(guide.subtitle)}</h2><p>${esc(guide.intro)}</p></div><div class="platform-tabs">${Object.entries(toolSetupGuides).map(([key,item])=>`<button class="${key===platform?'active':''}" data-guide-tab="${key}">${esc(item.label)}</button>`).join('')}</div><div class="tool-setup-grid">${guide.groups.map((group,index)=>`<article class="tool-setup-card"><span class="num">SETUP ${String(index+1).padStart(2,'0')}</span><h2>${esc(group.title)}</h2><p>${esc(group.description)}</p>${group.command?`<div class="command" data-command="${attr(group.command)}">${esc(group.command)}<button class="copy" title="Copy command only">Copy</button></div>`:''}${group.link?`<a class="primary setup-link" href="${attr(group.link)}" target="_blank" rel="noopener noreferrer">${esc(group.linkLabel)} ↗</a>`:''}</article>`).join('')}</div><div class="reference-notice"><b>Important:</b> ${esc(guide.note)}</div>`;
   $$('#toolsGuide .copy').forEach(button=>button.onclick=()=>copyText(button.parentElement.dataset.command));
   $$('#toolsGuide [data-guide-tab]').forEach(button=>button.onclick=()=>showToolsGuide(button.dataset.guideTab));window.scrollTo(0,0);setMobileNav('home');
 }
-function closeMobilePanels(){document.body.classList.remove('menu-open','mobile-search-open')}
+function closeMobilePanels(){document.body.classList.remove('menu-open','mobile-search-open');$('#coreCategoriesButton').hidden=false}
 function setMobileNav(){}
 function updateTopicNavigation(){
   const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num),hasNext=position>=0&&position<list.length-1;
@@ -386,7 +491,7 @@ function bind(){
   $('#homeBrandButton').onclick=()=>{activeCategory='All Commands';activeDifficulty='All Levels';activeCommandGroup='All Command Categories';query='';$('#search').value='';$('#categoryCommandSearch').value='';showHome()};
   $('#search').oninput=e=>{
     query=e.target.value.toLowerCase().trim();
-    $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');setCrumb('HOME');
+    $('#reader').classList.remove('active');$('#wslGuide').classList.remove('active');$('#coreCategoriesGuide').classList.remove('active');$('#commonCluesGuide').classList.remove('active');$('#combinationsGuide').classList.remove('active');$('#toolsGuide').classList.remove('active');$('#home').classList.add('active');$('#coreCategoriesButton').hidden=false;setCrumb('HOME');
     filter();
     if(query)requestAnimationFrame(()=>$('#topicGrid').scrollIntoView({block:'start'}));
     else window.scrollTo(0,0);
@@ -398,7 +503,14 @@ function bind(){
   $('#allCategoriesButton').onclick=()=>{activeCategory='All Commands';activeDifficulty='All Levels';activeCommandGroup='All Command Categories';query='';$('#search').value='';$('#categoryCommandSearch').value='';filter();window.scrollTo({top:$('#topicGrid').offsetTop-90,behavior:'smooth'})};
   document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('#search').focus()}if(e.key==='Escape'){$('#search').value='';query='';showHome()}});
   $('#browseCommandsButton').onclick=()=>{$('#search').focus();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})};
-  $('#wslGuideButton').onclick=showWslGuide;$('#wslBackButton').onclick=showHome;$('#toolsBackButton').onclick=showHome;
+  $('#coreCategoriesButton').onclick=requestCoreCategoriesAccess;$('#coreCategoriesBackButton').onclick=showHome;
+  $$('[data-core-category]').forEach(button=>button.onclick=()=>showCorePanel('category',button.dataset.coreCategory));
+  $('[data-core-workflow]').onclick=()=>showCorePanel('workflow');
+  $('[data-core-file-clues]').onclick=()=>showCorePanel('file-clues');
+  $('#commonCluesButton').onclick=showCommonCluesGuide;$('#commonCluesBackButton').onclick=showHome;$('#combinationsGuideButton').onclick=showCombinationsGuide;$('#combinationsBackButton').onclick=showHome;$('#wslGuideButton').onclick=showWslGuide;$('#wslBackButton').onclick=showHome;$('#toolsBackButton').onclick=showHome;
+  $('#coreAccessForm').onsubmit=e=>{e.preventDefault();if($('#coreAccessCode').value!=='0311'){$('#coreAccessError').textContent='Incorrect code. Please try again.';$('#coreAccessCode').select();return}closeCoreAccessDialog();showCoreCategoriesGuide()};
+  $('#coreAccessDialog').onclick=e=>{if(e.target===$('#coreAccessDialog'))closeCoreAccessDialog()};
+  $('#combinationCategorySelect').onchange=renderCombinationTables;$('#combinationSearch').oninput=renderCombinationTables;
   $('#toolsSetupMenu').onclick=e=>{const button=e.target.closest('[data-tools-platform]');if(button)showToolsGuide(button.dataset.toolsPlatform)};
   $('#randomButton').onclick=()=>{const available=commands.filter(c=>(activeCategory==='All Commands'||c.category===activeCategory)&&matchesDifficulty(c));if(available.length){const target=available[Math.floor(Math.random()*available.length)];query=target.name.toLowerCase();$('#search').value=target.name;filter();$('#topicGrid').scrollIntoView({behavior:'smooth',block:'start'})}};$('#backButton').onclick=showHome;
   $('#prevButton').onclick=()=>{if(readerMode==='tutorial')return openTutorial(tutorialCurrent-1);const list=topicSequence(),position=list.findIndex(s=>s.num===sections[current].num);position>0&&openTopic(sections.indexOf(list[position-1]))};
